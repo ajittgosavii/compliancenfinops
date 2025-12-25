@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Trivy Container Scanner as AWS Lambda API'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - prod
+      - staging
+      - dev
+
+Resources:
+  # ECR Repository for Trivy Lambda Image
+  TrivyLambdaRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: trivy-scanner-lambda
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  # Lambda Execution Role
+  TrivyLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'trivy-scanner-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+
+  # Lambda Function
+  TrivyScannerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'trivy-scanner-${Environment}'
+      PackageType: Image
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/trivy-scanner-lambda:latest'
+      Role: !GetAtt TrivyLambdaRole.Arn
+      Timeout: 300
+      MemorySize: 2048
+      Environment:
+        Variables:
+          TRIVY_CACHE_DIR: /tmp/trivy-cache
+
+  # API Gateway REST API
+  TrivyApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'trivy-scanner-api-${Environment}'
+      Description: Trivy Container Scanner API
+
+  # API Resource: /scan
+  ScanResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref TrivyApi
+      ParentId: !GetAtt TrivyApi.RootResourceId
+      PathPart: scan
+
+  # API Method: POST /scan
+  ScanMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref TrivyApi
+      ResourceId: !Ref ScanResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TrivyScannerFunction.Arn}/invocations'
+
+  # Lambda Permission for API Gateway
+  LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TrivyScannerFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TrivyApi}/*'
+
+  # API Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ScanMethod
+    Properties:
+      RestApiId: !Ref TrivyApi
+      StageName: !Ref Environment
+
+Outputs:
+  ApiEndpoint:
+    Description: Trivy Scanner API Endpoint
+    Value: !Sub 'https://${TrivyApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/scan'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiEndpoint'
+  
+  LambdaFunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt TrivyScannerFunction.Arn
+  
+  ECRRepository:
+    Description: ECR Repository URI
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/trivy-scanner-lambda'

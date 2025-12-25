@@ -1660,20 +1660,31 @@ def get_compliance_data_for_mode():
                 low = sum(1 for f in findings if f.get('Severity', {}).get('Label') == 'LOW')
                 
                 total = len(findings)
+                
                 # Calculate compliance score - SAME FORMULA as calculate_overall_compliance_score()
                 # This ensures consistency between the top banner and the breakdown
                 compliance_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
                 
-                sec_hub_data = {
-                    'compliance_score': round(compliance_score, 1),
-                    'total_findings': total,
-                    'critical': critical,
-                    'high': high,
-                    'medium': medium,
-                    'low': low
-                }
+                # Update sec_hub_data with actual values
+                sec_hub_data['compliance_score'] = round(compliance_score, 1)
+                sec_hub_data['total_findings'] = total
+                sec_hub_data['critical'] = critical
+                sec_hub_data['high'] = high
+                sec_hub_data['medium'] = medium
+                sec_hub_data['low'] = low
         except Exception as e:
-            pass  # Keep default zeros
+            # If there's an error, try to at least calculate score from any existing session data
+            existing_data = st.session_state.get('sec_hub_data', {})
+            if existing_data and existing_data.get('total_findings', 0) > 0:
+                critical = existing_data.get('critical', 0)
+                high = existing_data.get('high', 0)
+                medium = existing_data.get('medium', 0)
+                sec_hub_data['compliance_score'] = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+                sec_hub_data['total_findings'] = existing_data.get('total_findings', 0)
+                sec_hub_data['critical'] = critical
+                sec_hub_data['high'] = high
+                sec_hub_data['medium'] = medium
+                sec_hub_data['low'] = existing_data.get('low', 0)
         
         # Fetch AWS Config data
         config_data = {
@@ -5171,7 +5182,7 @@ def offboard_aws_account(
 # ============================================================================
 
 def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
-    """Calculate overall compliance score based on AWS Config"""
+    """Calculate overall compliance score based on Security Hub findings"""
     
     # 🆕 CHECK DEMO MODE FIRST
     if st.session_state.get('demo_mode', False):
@@ -5181,30 +5192,19 @@ def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
     if not st.session_state.get('aws_connected'):
         return 0.0
     
-    # Get AWS Config compliance rate (most accurate)
-    config_data = st.session_state.get('config_data', {})
-    
-    if config_data and 'compliance_rate' in config_data:
-        # AWS Config provides the real compliance percentage
-        return float(config_data['compliance_rate'])
-    
-    # Fallback: If no Config data, calculate from passed data
+    # PRIMARY: Calculate from Security Hub findings passed to this function
     if data and isinstance(data, dict):
         # Check if Security Hub service is not enabled
         if data.get('service_status') == 'NOT_ENABLED':
-            # Security Hub not enabled - return 0% as we can't determine compliance
             return 0.0
         
-        # Calculate from Security Hub data if available
         total_findings = data.get('total_findings', 0)
         
         # If we successfully queried Security Hub and got 0 findings, that's 100% compliance!
-        # This is different from "no data available"
         if total_findings == 0 and 'findings_by_severity' in data:
-            # We got a valid response with 0 findings = perfect compliance
             return 100.0
         elif total_findings > 0:
-            # If we have findings, calculate based on severity
+            # Calculate based on severity - SAME FORMULA everywhere
             critical = data.get('critical', 0)
             high = data.get('high', 0)
             medium = data.get('medium', 0)
@@ -5212,7 +5212,15 @@ def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
             score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
             return score
     
-    # If truly no data available, return 0% (not 100%) to be consistent
+    # SECONDARY: Try AWS Config compliance rate as fallback
+    config_data = st.session_state.get('config_data', {})
+    if config_data:
+        # Check both possible key names
+        compliance_rate = config_data.get('compliance_rate', config_data.get('compliance_percentage', 0))
+        if compliance_rate > 0:
+            return float(compliance_rate)
+    
+    # If truly no data available, return 0%
     return 0.0
 
 def get_portfolio_stats(portfolio: str) -> Dict[str, Any]:
@@ -5326,6 +5334,15 @@ def render_main_header():
 
 def render_overall_score_card(score: float, sec_hub_data: Dict = None):
     """Render overall compliance score card with dynamic metrics"""
+    
+    # 🆕 RECALCULATE SCORE FROM SEC_HUB_DATA if it seems wrong
+    if score == 0.0 and sec_hub_data and sec_hub_data.get('total_findings', 0) > 0:
+        # Score should not be 0 if we have findings - recalculate
+        critical = sec_hub_data.get('critical', 0)
+        high = sec_hub_data.get('high', 0)
+        medium = sec_hub_data.get('medium', 0)
+        score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        st.session_state.overall_compliance_score = score
     
     # Determine grade and color
     if score >= 95:
@@ -8636,8 +8653,21 @@ def render_unified_compliance_dashboard():
             """)
     
     # Use the same overall score as the top banner for consistency
-    # This score is calculated in calculate_overall_compliance_score() and stored in session state
+    # But recalculate from compliance_data if needed (to ensure freshness)
     overall_score = st.session_state.get('overall_compliance_score', 0.0)
+    
+    # If overall_score is 0 but we have Security Hub data, recalculate
+    sec_hub = compliance_data['aws_security_hub']
+    if overall_score == 0.0 and sec_hub.get('total_findings', 0) > 0:
+        critical = sec_hub.get('critical', 0)
+        high = sec_hub.get('high', 0)
+        medium = sec_hub.get('medium', 0)
+        overall_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        st.session_state.overall_compliance_score = overall_score
+    
+    # Also use Security Hub's compliance_score if we have it
+    if overall_score == 0.0 and sec_hub.get('compliance_score', 0) > 0:
+        overall_score = sec_hub.get('compliance_score', 0)
     
     # Determine which sources have data for the description
     source_names = []

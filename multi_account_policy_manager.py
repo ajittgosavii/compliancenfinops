@@ -866,16 +866,22 @@ def render_multi_account_manager():
     </div>
     """, unsafe_allow_html=True)
     
-    # Connection status
-    if BOTO3_AVAILABLE:
-        try:
-            sts = boto3.client('sts')
-            account = sts.get_caller_identity()['Account']
-            st.success(f"✅ Connected to AWS Account: {account}")
-        except Exception:
-            st.warning("⚠️ AWS credentials not configured - using demo mode")
+    # Connection status - check session state (where main app stores credentials)
+    aws_connected = st.session_state.get('aws_connected', False)
+    aws_account_id = st.session_state.get('aws_account_id')
+    demo_mode = st.session_state.get('demo_mode', False)
+    
+    if aws_connected and aws_account_id and not demo_mode:
+        st.success(f"✅ Connected to AWS Account: {aws_account_id}")
+    elif demo_mode:
+        st.info("📋 Demo Mode - showing sample data")
     else:
-        st.warning("⚠️ boto3 not available - using demo mode")
+        # Try to check via session state clients
+        clients = st.session_state.get('aws_clients', {})
+        if clients.get('organizations') or clients.get('sts'):
+            st.success("✅ AWS credentials available via session")
+        else:
+            st.warning("⚠️ AWS credentials not detected - connect via sidebar")
     
     # Main tabs
     tabs = st.tabs([

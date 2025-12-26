@@ -7470,25 +7470,20 @@ def render_inspector_vulnerability_dashboard():
     
     st.markdown("---")
     
-    # Main tabs for EKS Containers, Analytics, and AI Remediation
-    # Note: Windows and Linux remediation are now under AI Remediation tab
+    # Main tabs - OS remediation is now integrated into EKS Enterprise module
     os_tabs = st.tabs([
-        "🐳 EKS Container Vulnerabilities",
-        "📊 Analytics", 
-        "🤖 AI Remediation"
+        "🐳 EKS & OS Vulnerabilities",
+        "📊 Analytics"
     ])
     
-    # Windows Vulnerabilities Tab - REMOVED (now under AI Remediation tab)
-    # with os_tabs[0]:
-    # EKS Container Vulnerabilities Tab - Enhanced with Enterprise Dashboard
+    # EKS & OS Vulnerabilities Tab - Enterprise Dashboard with dual workflow
     with os_tabs[0]:
-        st.markdown("### 🐳 EKS Container Vulnerability Management")
+        st.markdown("### 🛡️ Enterprise Vulnerability Management")
         
         if EKS_ENTERPRISE_AVAILABLE:
-            st.success("✅ EKS Enterprise dashboard loaded")
-            st.info("📌 Complete Q1-Q2 2025 roadmap with Phases 1-4: Live scanning, auto-remediation, multi-cluster, and AI/ML features")
+            st.success("✅ Enterprise dashboard loaded - Container & OS workflows available")
             
-            # Render the full enterprise EKS dashboard (all phases 1-4)
+            # Render the full enterprise dashboard (Container + OS workflows)
             render_enterprise_vulnerability_dashboard()
         else:
             # Fallback to basic EKS module if enterprise not available
@@ -7501,12 +7496,14 @@ def render_inspector_vulnerability_dashboard():
                 st.warning("⚠️ EKS vulnerability modules not loaded. Upload modules to enable container security features.")
                 st.markdown("""
                 **Available with full enterprise module:**
+                - **Container Workflow:** Discovery → Scan → Analyze → Remediate → Report
+                - **OS Workflow:** EC2 Discovery → Scan → Windows/Linux Remediation → Report
                 - **Phase 1:** Live scanner integration (Trivy, Snyk, AWS Inspector v2)
                 - **Phase 2:** Auto-remediation with one-click fixes and rollback
-                - **Phase 3:** Multi-cluster management, compliance mapping (PCI-DSS, HIPAA, SOC 2), PDF/Excel reports, Slack/Teams notifications
-                - **Phase 4:** ML risk scoring, natural language queries with Claude AI, automated triage
+                - **Phase 3:** Multi-cluster management, compliance mapping (PCI-DSS, HIPAA, SOC 2), PDF/Excel reports
+                - **Phase 4:** ML risk scoring, natural language queries with Claude AI
                 
-                **To enable:** Upload `eks_vulnerability_enterprise_complete.py` (82 KB) to your repository
+                **To enable:** Upload `eks_vulnerability_enterprise_complete.py` to your repository
                 """)
     
     # Analytics Tab
@@ -7560,145 +7557,6 @@ def render_inspector_vulnerability_dashboard():
                      labels={'value': 'Count', 'variable': 'Severity'},
                      color_discrete_map={'Critical': '#F44336', 'High': '#FF9900', 'Medium': '#FFC107'})
         st.plotly_chart(fig, width="stretch")
-    
-    # AI Remediation Tab - ENHANCED with OS Flavour Selection
-    with os_tabs[2]:
-        st.markdown("### 🤖 AI-Powered Bulk Remediation")
-        
-        # Get data from inspector for fallback metrics
-        windows_data = inspector_data.get('windows_vulns', {})
-        linux_data = inspector_data.get('linux_vulns', {})
-        
-        # Intelligent Patch Management header
-        with st.expander("🧠 Intelligent Patch Management", expanded=False):
-            st.markdown("""
-            <div class='ai-analysis'>
-                <p>Let Claude AI analyze all vulnerabilities and generate comprehensive remediation plans
-                with OS-specific scripts tailored to your Windows Server versions and Linux distributions.</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Quick overview removed - metrics now shown within each OS sub-tab
-        st.markdown("---")
-        st.markdown("### 💻 OS-Specific Remediation by Flavour")
-        st.info("📌 **NEW:** Select your specific OS version/distribution to generate tailored remediation scripts")
-        
-        # Create tabs for Windows and Linux only (EKS is in its own dedicated tab)
-        remediation_tabs = st.tabs([
-            "🪟 Windows Server", 
-            "🐧 Linux Distributions"
-        ])
-        
-        # ===== WINDOWS SERVER TAB =====
-        with remediation_tabs[0]:
-            st.markdown("#### Windows Server Remediation by Version")
-            
-            if WINDOWS_REMEDIATION_AVAILABLE:
-                st.success("✅ Windows remediation module loaded")
-                st.markdown("""
-                **Select your Windows Server version** to generate OS-specific PowerShell remediation scripts:
-                - Windows Server 2025 (Build 26100)
-                - Windows Server 2022 (Build 20348)
-                - Windows Server 2019 (Build 17763)
-                - Windows Server 2016 (Build 14393)
-                - Windows Server 2012 R2 (Build 9600)
-                """)
-                
-                # Render the Windows remediation UI with OS flavour dropdown
-                render_windows_remediation_ui()
-            else:
-                # Fallback to basic stats if module not available
-                st.warning("⚠️ Enhanced Windows remediation module not loaded. Upload `windows_server_remediation_MERGED_ENHANCED.py` for OS-specific features.")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Vulnerabilities", windows_data.get('total', 0))
-                    st.metric("Critical", windows_data.get('critical', 0))
-                with col2:
-                    st.metric("High", windows_data.get('high', 0))
-                    st.metric("Auto-Fixable", windows_data.get('critical', 0) + windows_data.get('high', 0))
-                
-                if st.button("🤖 Generate Windows Remediation Plan (Basic)", width="stretch", type="primary"):
-                    with st.spinner("Analyzing Windows vulnerabilities..."):
-                        time.sleep(2)
-                        st.success("✅ Basic remediation plan generated!")
-                        st.session_state['windows_bulk_plan'] = True
-        
-        # ===== LINUX DISTRIBUTIONS TAB =====
-        with remediation_tabs[1]:
-            st.markdown("#### Linux Distribution Remediation by Distro")
-            
-            if LINUX_REMEDIATION_AVAILABLE:
-                st.success("✅ Linux remediation module loaded")
-                st.markdown("""
-                **Select your Linux distribution** to generate OS-specific Bash remediation scripts:
-                - Amazon Linux 2 / 2023
-                - Red Hat Enterprise Linux 9 / 8 / 7
-                - Ubuntu 24.04 / 22.04 / 20.04 / 18.04 LTS
-                - CentOS 8 / Rocky Linux 8 / AlmaLinux 9
-                """)
-                
-                # Render the Linux remediation UI with OS flavour dropdown
-                render_linux_remediation_ui()
-            else:
-                # Fallback to basic stats if module not available
-                st.warning("⚠️ Enhanced Linux remediation module not loaded. Upload `linux_distribution_remediation_MERGED_ENHANCED.py` for OS-specific features.")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Vulnerabilities", linux_data.get('total', 0))
-                    st.metric("Critical", linux_data.get('critical', 0))
-                with col2:
-                    st.metric("High", linux_data.get('high', 0))
-                    st.metric("Auto-Fixable", linux_data.get('critical', 0) + linux_data.get('high', 0))
-                
-                if st.button("🤖 Generate Linux Remediation Plan (Basic)", width="stretch", type="primary"):
-                    with st.spinner("Analyzing Linux vulnerabilities..."):
-                        time.sleep(2)
-                        st.success("✅ Basic remediation plan generated!")
-                        st.session_state['linux_bulk_plan'] = True
-        
-        # Note: EKS Container Security is now in its own dedicated tab (EKS Container Vulnerabilities)
-        # This keeps AI Remediation focused on OS-level patching (Windows/Linux)
-        
-        # Legacy bulk remediation plans (shown below tabs if generated)
-        if st.session_state.get('windows_bulk_plan') or st.session_state.get('linux_bulk_plan'):
-            st.markdown("---")
-            st.markdown("### 📋 Generated Remediation Plans")
-        
-        if st.session_state.get('windows_bulk_plan'):
-            with st.expander("🪟 Windows Remediation Plan", expanded=True):
-                st.markdown("""
-                **Phase 1: Critical Vulnerabilities (Immediate)**
-                - CVE-2024-1234: Windows RCE - Deploy to 12 instances
-                - CVE-2024-5678: Privilege Escalation - Deploy to 8 instances
-                
-                **Phase 2: High Severity (Within 48 hours)**
-                - 18 high-severity patches queued
-                - Estimated deployment time: 2-3 hours
-                
-                **Phase 3: Medium/Low (Within 7 days)**
-                - 107 medium/low severity patches
-                
-                **Deployment:** AWS Systems Manager Patch Manager with rollback enabled
-                """)
-        
-        if st.session_state.get('linux_bulk_plan'):
-            with st.expander("🐧 Linux Remediation Plan", expanded=True):
-                st.markdown("""
-                **Phase 1: Critical Vulnerabilities (Immediate)**
-                - CVE-2024-2345: Kernel Use-After-Free - Deploy to 28 instances
-                - CVE-2024-6789: OpenSSL Buffer Overflow - Deploy to 45 instances
-                
-                **Phase 2: High Severity (Within 48 hours)**
-                - 16 high-severity patches queued
-                - Estimated deployment time: 1-2 hours
-                
-                **Phase 3: Medium/Low (Within 7 days)**
-                - 88 medium/low severity patches
-                
-                **Deployment:** Distribution-specific commands with automated reboot management
-                """)
 
 def render_overview_dashboard():
     """Render overview dashboard tab"""

@@ -1633,21 +1633,12 @@ def get_compliance_data_for_mode():
         # LIVE MODE with AWS connected - Fetch real data
         clients = st.session_state.get('aws_clients', {})
         
-        # Fetch Security Hub data - TRY SESSION STATE FIRST (already fetched by main dashboard)
-        sec_hub_data = {
-            'compliance_score': 0,
-            'total_findings': 0,
-            'critical': 0,
-            'high': 0,
-            'medium': 0,
-            'low': 0
-        }
-        
-        # First check if we already have Security Hub data in session state
-        existing_sec_hub = st.session_state.get('sec_hub_data', {})
-        if not existing_sec_hub:
-            # Also try the fetch_security_hub_findings result pattern
-            existing_sec_hub = {}
+        # Initialize with zeros
+        total = 0
+        critical = 0
+        high = 0
+        medium = 0
+        low = 0
         
         try:
             sec_hub_client = clients.get('securityhub')
@@ -1664,30 +1655,22 @@ def get_compliance_data_for_mode():
                 high = sum(1 for f in findings if f.get('Severity', {}).get('Label') == 'HIGH')
                 medium = sum(1 for f in findings if f.get('Severity', {}).get('Label') == 'MEDIUM')
                 low = sum(1 for f in findings if f.get('Severity', {}).get('Label') == 'LOW')
-                
                 total = len(findings)
-                
-                # Calculate compliance score - SAME FORMULA everywhere
-                compliance_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
-                
-                sec_hub_data = {
-                    'compliance_score': round(compliance_score, 1),
-                    'total_findings': total,
-                    'critical': critical,
-                    'high': high,
-                    'medium': medium,
-                    'low': low
-                }
         except Exception as e:
-            # If API call fails, use zeros
-            pass
+            pass  # Keep zeros
         
-        # If we still have 0 compliance_score but have findings, something went wrong - recalculate
-        if sec_hub_data['compliance_score'] == 0 and sec_hub_data['total_findings'] > 0:
-            critical = sec_hub_data.get('critical', 0)
-            high = sec_hub_data.get('high', 0)
-            medium = sec_hub_data.get('medium', 0)
-            sec_hub_data['compliance_score'] = round(max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2)), 1)
+        # ALWAYS calculate compliance score from the counts (never rely on API)
+        # Formula: 100 - (critical × 10) - (high × 5) - (medium × 2)
+        compliance_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        
+        sec_hub_data = {
+            'compliance_score': round(compliance_score, 1),
+            'total_findings': total,
+            'critical': critical,
+            'high': high,
+            'medium': medium,
+            'low': low
+        }
         
         # Fetch AWS Config data
         config_data = {

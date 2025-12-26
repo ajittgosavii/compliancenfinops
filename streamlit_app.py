@@ -234,12 +234,12 @@ except ImportError:
 
 # NEW: Multi-Account Policy Manager (AWS Organizations, StackSets, Config Aggregator)
 try:
-    from multi_account_policy_manager import render_multi_account_policy_manager
+    from multi_account_policy_manager import render_multi_account_manager
     MULTI_ACCOUNT_AVAILABLE = True
     print("✅ multi_account_policy_manager.py loaded")
-except ImportError:
+except ImportError as e:
     MULTI_ACCOUNT_AVAILABLE = False
-    print("Note: multi_account_policy_manager.py not found")
+    print(f"Note: multi_account_policy_manager.py not found: {e}")
 
 try:
     from ai_threat_scene_6_PRODUCTION import render_ai_threat_analysis_scene
@@ -10282,7 +10282,7 @@ def main():
         
         else:  # Multi-Account mode
             if MULTI_ACCOUNT_AVAILABLE:
-                render_multi_account_policy_manager()
+                render_multi_account_manager()
             else:
                 st.warning("⚠️ Upload `multi_account_policy_manager.py` for Multi-Account mode")
                 st.markdown("""

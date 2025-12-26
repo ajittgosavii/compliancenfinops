@@ -216,6 +216,22 @@ except ImportError:
     SCP_SCENE_AVAILABLE = False
     print("Note: scp_scene_5_enhanced.py not found - using built-in version")
 
+# NEW: Tech Guardrails Enterprise Module
+try:
+    from tech_guardrails_enterprise import render_tech_guardrails_dashboard
+    TECH_GUARDRAILS_ENTERPRISE_AVAILABLE = True
+except ImportError:
+    TECH_GUARDRAILS_ENTERPRISE_AVAILABLE = False
+    print("Note: tech_guardrails_enterprise.py not found - using built-in version")
+
+# NEW: Policy as Code Platform (Modern Approach)
+try:
+    from policy_as_code_platform import render_policy_as_code_platform
+    POLICY_AS_CODE_AVAILABLE = True
+except ImportError:
+    POLICY_AS_CODE_AVAILABLE = False
+    print("Note: policy_as_code_platform.py not found")
+
 try:
     from ai_threat_scene_6_PRODUCTION import render_ai_threat_analysis_scene
     AI_THREAT_AVAILABLE = True
@@ -10172,24 +10188,74 @@ def main():
     with tabs[3]:
         render_inspector_vulnerability_dashboard()
     
-    # Tab 4: Tech Guardrails (was Tab 3)
+    # Tab 4: Tech Guardrails - Enterprise Module with Unified Workflow
     with tabs[4]:
-        st.markdown("## 🚧 Tech Guardrails")
-    
-        guardrail_tabs = st.tabs([
-        "🛡️ Service Control Policies (SCP)",
-        "📜 OPA Policies", 
-        "🔍 KICS Scanning"
-    ])
-    
-        with guardrail_tabs[0]:
-            render_scp_policy_engine_scene()
+        # Mode selector at the top
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3b82f6 100%); 
+                    padding: 1rem; border-radius: 12px; margin-bottom: 1rem;'>
+            <h2 style='color: white; margin: 0;'>🚧 Tech Guardrails</h2>
+            <p style='color: #94a3b8; margin: 0.5rem 0 0 0;'>
+                Enterprise Policy Management & Policy as Code
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with guardrail_tabs[1]:
-            render_opa_policies_tab_with_deployment()
+        # Mode selection
+        guardrail_mode = st.radio(
+            "Select Mode",
+            ["🏢 Enterprise Management", "🏛️ Policy as Code"],
+            horizontal=True,
+            key="guardrail_mode_selector",
+            help="Enterprise: UI-based workflow | Policy as Code: Code-first approach with testing"
+        )
         
-        with guardrail_tabs[2]:
-            render_kics_scanning_tab_with_deployment()
+        st.markdown("---")
+        
+        if guardrail_mode == "🏢 Enterprise Management":
+            if TECH_GUARDRAILS_ENTERPRISE_AVAILABLE:
+                render_tech_guardrails_dashboard()
+            else:
+                st.warning("⚠️ Upload `tech_guardrails_enterprise.py` for Enterprise Management mode")
+                # Fallback to legacy
+                guardrail_tabs = st.tabs([
+                    "🛡️ Service Control Policies (SCP)",
+                    "📜 OPA Policies", 
+                    "🔍 KICS Scanning"
+                ])
+            
+                with guardrail_tabs[0]:
+                    render_scp_policy_engine_scene()
+                
+                with guardrail_tabs[1]:
+                    render_opa_policies_tab_with_deployment()
+                
+                with guardrail_tabs[2]:
+                    render_kics_scanning_tab_with_deployment()
+        
+        else:  # Policy as Code mode
+            if POLICY_AS_CODE_AVAILABLE:
+                render_policy_as_code_platform()
+            else:
+                st.warning("⚠️ Upload `policy_as_code_platform.py` for Policy as Code mode")
+                st.markdown("""
+                ### 🏛️ Policy as Code - Coming Soon
+                
+                **What is Policy as Code?**
+                - Policies stored as version-controlled code files (.rego, .yaml)
+                - Automated testing with unit tests
+                - Git-based review and approval workflow
+                - CI/CD pipeline integration
+                
+                **Benefits:**
+                - ✅ Version control and audit trail
+                - ✅ Automated testing before deployment
+                - ✅ PR-based review process
+                - ✅ Rollback capability
+                - ✅ GitOps deployment
+                
+                Upload `policy_as_code_platform.py` to enable this mode.
+                """)
     
     # Tab 5: Remediation (combined AI + Unified)
     with tabs[5]:

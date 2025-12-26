@@ -29,33 +29,51 @@ import pandas as pd
 def get_aws_client(service_name: str):
     """Get boto3 client from session state or create new one"""
     try:
+        # First try to use the session from main app
         session = st.session_state.get('boto3_session')
         if session:
             return session.client(service_name)
-        else:
-            return boto3.client(service_name)
+        
+        # Fallback to default boto3 client
+        return boto3.client(service_name)
     except Exception as e:
-        st.warning(f"Cannot create {service_name} client: {e}")
+        # Show warning only once per service
+        warning_key = f"_warned_{service_name}"
+        if not st.session_state.get(warning_key):
+            st.warning(f"Cannot create {service_name} client: {e}")
+            st.session_state[warning_key] = True
         return None
 
 
 def is_live_mode() -> bool:
     """Check if we're in live mode with valid AWS connection"""
+    # Check if demo mode is enabled
     if st.session_state.get('demo_mode', False):
         return False
     
-    # Check if we have a valid session
-    session = st.session_state.get('boto3_session')
-    if not session:
-        # Try to create one
-        try:
-            sts = boto3.client('sts')
-            sts.get_caller_identity()
-            return True
-        except Exception:
-            return False
+    # Quick checks for session state indicators
+    if st.session_state.get('aws_connected', False):
+        return True
     
-    return True
+    if st.session_state.get('boto3_session'):
+        return True
+    
+    if st.session_state.get('aws_account_id'):
+        return True
+    
+    if st.session_state.get('aws_clients'):
+        return True
+    
+    # Final fallback: try boto3 directly
+    # This works if AWS credentials are configured via env vars or credentials file
+    try:
+        sts = boto3.client('sts')
+        identity = sts.get_caller_identity()
+        # Store for future use
+        st.session_state.aws_account_id = identity.get('Account')
+        return True
+    except Exception:
+        return False
 
 
 # ============================================================================
@@ -504,15 +522,35 @@ def render_real_budget_tracking():
     
     st.subheader("📈 Budget Tracking & Forecasting")
     
+    # Debug info in expander
+    with st.expander("🔧 Debug Info", expanded=False):
+        st.write(f"demo_mode: {st.session_state.get('demo_mode', 'not set')}")
+        st.write(f"aws_connected: {st.session_state.get('aws_connected', 'not set')}")
+        st.write(f"aws_account_id: {st.session_state.get('aws_account_id', 'not set')}")
+        st.write(f"has boto3_session: {st.session_state.get('boto3_session') is not None}")
+        st.write(f"has aws_clients: {bool(st.session_state.get('aws_clients'))}")
+        st.write(f"is_live_mode(): {is_live_mode()}")
+    
+    # Check live mode
     if not is_live_mode():
         st.warning("⚠️ Enable Live Mode and connect to AWS to see real budget data")
         return
     
-    # Fetch real data
-    budgets = fetch_real_budgets()
-    costs = fetch_real_cost_data(30)
-    forecast = fetch_real_forecast()
-    monthly_costs = fetch_monthly_costs(6)
+    st.success("✅ Fetching real data from AWS Cost Explorer & Budgets...")
+    
+    # Fetch real data with error handling
+    try:
+        with st.spinner("Loading cost data..."):
+            budgets = fetch_real_budgets()
+            costs = fetch_real_cost_data(30)
+            forecast = fetch_real_forecast()
+            monthly_costs = fetch_monthly_costs(6)
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        budgets = None
+        costs = None
+        forecast = None
+        monthly_costs = None
     
     if not budgets and not costs:
         st.info("""
@@ -597,13 +635,20 @@ def render_real_optimization_recommendations():
     
     st.subheader("📊 Cost Optimization Recommendations")
     
-    if not is_live_mode():
+    # Check live mode
+    live_mode = is_live_mode()
+    
+    if not live_mode:
         st.warning("⚠️ Enable Live Mode and connect to AWS to see real recommendations")
+        st.caption(f"Debug: demo_mode={st.session_state.get('demo_mode')}, aws_connected={st.session_state.get('aws_connected')}")
         return
     
+    st.success("✅ Fetching real recommendations from AWS Compute Optimizer...")
+    
     # Fetch real recommendations
-    compute_recs = fetch_real_recommendations()
-    coh_recs = fetch_cost_optimization_hub()
+    with st.spinner("Loading recommendations..."):
+        compute_recs = fetch_real_recommendations()
+        coh_recs = fetch_cost_optimization_hub()
     
     all_recs = []
     total_savings = 0

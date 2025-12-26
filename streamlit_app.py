@@ -232,6 +232,14 @@ except ImportError:
     POLICY_AS_CODE_AVAILABLE = False
     print("Note: policy_as_code_platform.py not found")
 
+# NEW: Multi-Account Policy Manager
+try:
+    from multi_account_policy_manager import render_multi_account_manager
+    MULTI_ACCOUNT_AVAILABLE = True
+except ImportError:
+    MULTI_ACCOUNT_AVAILABLE = False
+    print("Note: multi_account_policy_manager.py not found")
+
 try:
     from ai_threat_scene_6_PRODUCTION import render_ai_threat_analysis_scene
     AI_THREAT_AVAILABLE = True
@@ -482,6 +490,22 @@ try:
 except ImportError:
     EXTERNAL_FINOPS_AVAILABLE = False
     print("Note: External FinOps module not available, using built-in FinOps section")
+
+# NEW: Live FinOps Data Module (fetches REAL AWS data)
+try:
+    from finops_live_data import (
+        render_live_finops_dashboard,
+        render_real_budget_tracking,
+        render_real_optimization_recommendations,
+        render_real_cost_dashboard,
+        fetch_real_cost_data,
+        fetch_real_budgets,
+        is_live_mode
+    )
+    FINOPS_LIVE_AVAILABLE = True
+except ImportError:
+    FINOPS_LIVE_AVAILABLE = False
+    print("Note: finops_live_data.py not available - using hardcoded demo data")
     
 
 # Note: Uncomment these imports when deploying with required packages
@@ -10196,18 +10220,18 @@ def main():
                     padding: 1rem; border-radius: 12px; margin-bottom: 1rem;'>
             <h2 style='color: white; margin: 0;'>🚧 Tech Guardrails</h2>
             <p style='color: #94a3b8; margin: 0.5rem 0 0 0;'>
-                Enterprise Policy Management & Policy as Code
+                Enterprise Policy Management • Policy as Code • Multi-Account
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Mode selection
+        # Mode selection - now with 3 options
         guardrail_mode = st.radio(
             "Select Mode",
-            ["🏢 Enterprise Management", "🏛️ Policy as Code"],
+            ["🏢 Enterprise Management", "🏛️ Policy as Code", "🌐 Multi-Account"],
             horizontal=True,
             key="guardrail_mode_selector",
-            help="Enterprise: UI-based workflow | Policy as Code: Code-first approach with testing"
+            help="Enterprise: UI-based | Policy as Code: Code-first | Multi-Account: Organization-wide deployment"
         )
         
         st.markdown("---")
@@ -10233,7 +10257,7 @@ def main():
                 with guardrail_tabs[2]:
                     render_kics_scanning_tab_with_deployment()
         
-        else:  # Policy as Code mode
+        elif guardrail_mode == "🏛️ Policy as Code":
             if POLICY_AS_CODE_AVAILABLE:
                 render_policy_as_code_platform()
             else:
@@ -10255,6 +10279,30 @@ def main():
                 - ✅ GitOps deployment
                 
                 Upload `policy_as_code_platform.py` to enable this mode.
+                """)
+        
+        else:  # Multi-Account mode
+            if MULTI_ACCOUNT_AVAILABLE:
+                render_multi_account_manager()
+            else:
+                st.warning("⚠️ Upload `multi_account_policy_manager.py` for Multi-Account mode")
+                st.markdown("""
+                ### 🌐 Multi-Account Policy Management
+                
+                **Deploy policies across your entire AWS Organization:**
+                - StackSet-based deployment to all accounts
+                - Central compliance aggregation
+                - Cross-account visibility
+                - Organization-wide Config Rules
+                
+                **Features:**
+                - ✅ Deploy to multiple OUs at once
+                - ✅ Automatic deployment to new accounts
+                - ✅ Central compliance dashboard
+                - ✅ Cross-account non-compliant resource tracking
+                - ✅ CLI command reference
+                
+                Upload `multi_account_policy_manager.py` to enable this mode.
                 """)
     
     # Tab 5: Remediation (combined AI + Unified)
@@ -10640,143 +10688,148 @@ def main():
             st.info("👇 Scroll down to see detailed cost analysis in the comprehensive tabs below")
         
         with finops_tabs[2]:
-            # Budget Tracking Implementation
-            st.subheader("📈 Budget Tracking & Forecasting")
-            
-            # Check demo mode for data
-            is_demo = st.session_state.get('demo_mode', False)
-            
-            if is_demo:
-                # Demo mode data
-                total_budget = 3.0  # $3M
-                current_spend = 2.8  # $2.8M
-                forecasted = 2.95   # $2.95M
+            # Budget Tracking - Use live data module if available
+            if FINOPS_LIVE_AVAILABLE and not st.session_state.get('demo_mode', False):
+                render_real_budget_tracking()
             else:
-                # Live mode data
-                total_budget = 18.0
-                current_spend = 15.4
-                forecasted = 16.2
-            
-            utilization = (current_spend / total_budget) * 100
-            forecast_vs_budget = (forecasted / total_budget) * 100
-            
-            # Budget Overview Metrics
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Monthly Budget", f"${total_budget}M", 
-                         delta=f"{utilization:.1f}% utilized")
-            with col2:
-                st.metric("Current Spend", f"${current_spend}M", 
-                         delta=f"+{((current_spend/total_budget - 0.9) * 100):.1f}% vs target")
-            with col3:
-                st.metric("Forecasted Total", f"${forecasted}M",
-                         delta="Under budget" if forecasted < total_budget else "Over budget",
-                         delta_color="normal" if forecasted < total_budget else "inverse")
-            with col4:
-                remaining = total_budget - current_spend
-                st.metric("Remaining Budget", f"${remaining:.2f}M",
-                         delta=f"{(remaining/total_budget)*100:.1f}% remaining")
-            
-            st.markdown("---")
-            
-            # Budget vs Actual Chart
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.markdown("### Budget vs Actual Spend")
+                # Fallback to hardcoded demo data
+                st.subheader("📈 Budget Tracking & Forecasting")
                 
-                months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+                # Check demo mode for data
+                is_demo = st.session_state.get('demo_mode', False)
+                
                 if is_demo:
-                    budget_line = [3.0, 3.0, 3.0, 3.0, 3.0, 3.0]
-                    actual_spend = [2.1, 2.3, 2.5, 2.4, 2.6, 2.8]
-                    forecast_line = [2.1, 2.3, 2.5, 2.4, 2.6, 2.95]
+                    # Demo mode data
+                    total_budget = 3.0  # $3M
+                    current_spend = 2.8  # $2.8M
+                    forecasted = 2.95   # $2.95M
                 else:
-                    budget_line = [18.0, 18.0, 18.0, 18.0, 18.0, 18.0]
-                    actual_spend = [12.5, 13.2, 14.1, 14.5, 15.0, 15.4]
-                    forecast_line = [12.5, 13.2, 14.1, 14.5, 15.0, 16.2]
+                    # Live mode placeholder - should use real data
+                    st.info("💡 Upload `finops_live_data.py` to fetch real AWS Budget data")
+                    total_budget = 18.0
+                    current_spend = 15.4
+                    forecasted = 16.2
                 
-                fig = go.Figure()
+                utilization = (current_spend / total_budget) * 100
+                forecast_vs_budget = (forecasted / total_budget) * 100
                 
-                fig.add_trace(go.Bar(
-                    x=months, y=actual_spend,
-                    name='Actual Spend',
-                    marker_color='#88C0D0'
-                ))
-                
-                fig.add_trace(go.Scatter(
-                    x=months, y=budget_line,
-                    name='Budget Limit',
-                    line=dict(color='#dc3545', width=3, dash='dash'),
-                    mode='lines'
-                ))
-                
-                fig.add_trace(go.Scatter(
-                    x=months, y=forecast_line,
-                    name='Forecast',
-                    line=dict(color='#ffc107', width=2),
-                    mode='lines+markers'
-                ))
-                
-                fig.update_layout(
-                    height=350,
-                    yaxis_title='Spend ($M)',
-                    hovermode='x unified',
-                    legend=dict(orientation='h', yanchor='bottom', y=1.02)
-                )
-                
-                st.plotly_chart(fig, width="stretch")
-            
-            with col2:
-                st.markdown("### Budget Health")
-                
-                if utilization < 80:
-                    st.success(f"✅ **Healthy**\n\nBudget utilization: {utilization:.1f}%")
-                elif utilization < 95:
-                    st.warning(f"⚠️ **Monitor**\n\nBudget utilization: {utilization:.1f}%")
-                else:
-                    st.error(f"🚨 **At Risk**\n\nBudget utilization: {utilization:.1f}%")
+                # Budget Overview Metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Monthly Budget", f"${total_budget}M", 
+                             delta=f"{utilization:.1f}% utilized")
+                with col2:
+                    st.metric("Current Spend", f"${current_spend}M", 
+                             delta=f"+{((current_spend/total_budget - 0.9) * 100):.1f}% vs target")
+                with col3:
+                    st.metric("Forecasted Total", f"${forecasted}M",
+                             delta="Under budget" if forecasted < total_budget else "Over budget",
+                             delta_color="normal" if forecasted < total_budget else "inverse")
+                with col4:
+                    remaining = total_budget - current_spend
+                    st.metric("Remaining Budget", f"${remaining:.2f}M",
+                             delta=f"{(remaining/total_budget)*100:.1f}% remaining")
                 
                 st.markdown("---")
                 
-                st.markdown("### Alerts")
-                if forecast_vs_budget > 98:
-                    st.error("🔴 Forecast exceeds budget")
-                elif forecast_vs_budget > 95:
-                    st.warning("🟡 Approaching budget limit")
-                else:
-                    st.success("🟢 On track")
-            
-            st.markdown("---")
-            
-            # Department Budget Breakdown
-            st.markdown("### Department Budget Allocation")
-            
-            if is_demo:
-                dept_data = pd.DataFrame({
-                    'Department': ['Engineering', 'Data Science', 'Product', 'DevOps', 'Marketing'],
-                    'Budget': [1.2, 0.8, 0.5, 0.3, 0.2],
-                    'Spent': [1.15, 0.75, 0.48, 0.28, 0.14],
-                    'Utilization': [96, 94, 96, 93, 70]
-                })
-            else:
-                dept_data = pd.DataFrame({
-                    'Department': ['Engineering', 'Data Science', 'Product', 'DevOps', 'Marketing'],
-                    'Budget': [7.0, 5.0, 3.0, 2.0, 1.0],
-                    'Spent': [6.5, 4.7, 2.8, 1.85, 0.55],
-                    'Utilization': [93, 94, 93, 93, 55]
-                })
-            
-            for idx, row in dept_data.iterrows():
-                col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+                # Budget vs Actual Chart
+                col1, col2 = st.columns([2, 1])
+                
                 with col1:
-                    st.write(f"**{row['Department']}**")
+                    st.markdown("### Budget vs Actual Spend")
+                    
+                    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+                    if is_demo:
+                        budget_line = [3.0, 3.0, 3.0, 3.0, 3.0, 3.0]
+                        actual_spend = [2.1, 2.3, 2.5, 2.4, 2.6, 2.8]
+                        forecast_line = [2.1, 2.3, 2.5, 2.4, 2.6, 2.95]
+                    else:
+                        budget_line = [18.0, 18.0, 18.0, 18.0, 18.0, 18.0]
+                        actual_spend = [12.5, 13.2, 14.1, 14.5, 15.0, 15.4]
+                        forecast_line = [12.5, 13.2, 14.1, 14.5, 15.0, 16.2]
+                    
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Bar(
+                        x=months, y=actual_spend,
+                        name='Actual Spend',
+                        marker_color='#88C0D0'
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=months, y=budget_line,
+                        name='Budget Limit',
+                        line=dict(color='#dc3545', width=3, dash='dash'),
+                        mode='lines'
+                    ))
+                    
+                    fig.add_trace(go.Scatter(
+                        x=months, y=forecast_line,
+                        name='Forecast',
+                        line=dict(color='#ffc107', width=2),
+                        mode='lines+markers'
+                    ))
+                    
+                    fig.update_layout(
+                        height=350,
+                        yaxis_title='Spend ($M)',
+                        hovermode='x unified',
+                        legend=dict(orientation='h', yanchor='bottom', y=1.02)
+                    )
+                    
+                    st.plotly_chart(fig, width="stretch")
+                
                 with col2:
-                    st.write(f"${row['Budget']:.2f}M")
-                with col3:
-                    st.write(f"${row['Spent']:.2f}M")
-                with col4:
-                    util_color = "🟢" if row['Utilization'] < 90 else "🟡" if row['Utilization'] < 95 else "🔴"
-                    st.write(f"{util_color} {row['Utilization']}%")
+                    st.markdown("### Budget Health")
+                    
+                    if utilization < 80:
+                        st.success(f"✅ **Healthy**\n\nBudget utilization: {utilization:.1f}%")
+                    elif utilization < 95:
+                        st.warning(f"⚠️ **Monitor**\n\nBudget utilization: {utilization:.1f}%")
+                    else:
+                        st.error(f"🚨 **At Risk**\n\nBudget utilization: {utilization:.1f}%")
+                    
+                    st.markdown("---")
+                    
+                    st.markdown("### Alerts")
+                    if forecast_vs_budget > 98:
+                        st.error("🔴 Forecast exceeds budget")
+                    elif forecast_vs_budget > 95:
+                        st.warning("🟡 Approaching budget limit")
+                    else:
+                        st.success("🟢 On track")
+                
+                st.markdown("---")
+                
+                # Department Budget Breakdown
+                st.markdown("### Department Budget Allocation")
+                
+                if is_demo:
+                    dept_data = pd.DataFrame({
+                        'Department': ['Engineering', 'Data Science', 'Product', 'DevOps', 'Marketing'],
+                        'Budget': [1.2, 0.8, 0.5, 0.3, 0.2],
+                        'Spent': [1.15, 0.75, 0.48, 0.28, 0.14],
+                        'Utilization': [96, 94, 96, 93, 70]
+                    })
+                else:
+                    dept_data = pd.DataFrame({
+                        'Department': ['Engineering', 'Data Science', 'Product', 'DevOps', 'Marketing'],
+                        'Budget': [7.0, 5.0, 3.0, 2.0, 1.0],
+                        'Spent': [6.5, 4.7, 2.8, 1.85, 0.55],
+                        'Utilization': [93, 94, 93, 93, 55]
+                    })
+                
+                for idx, row in dept_data.iterrows():
+                    col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+                    with col1:
+                        st.write(f"**{row['Department']}**")
+                    with col2:
+                        st.write(f"${row['Budget']:.2f}M")
+                    with col3:
+                        st.write(f"${row['Spent']:.2f}M")
+                    with col4:
+                        util_color = "🟢" if row['Utilization'] < 90 else "🟡" if row['Utilization'] < 95 else "🔴"
+                        st.write(f"{util_color} {row['Utilization']}%")
         
         with finops_tabs[3]:
             # Optimization Recommendations Implementation

@@ -1660,9 +1660,8 @@ def get_compliance_data_for_mode():
         except Exception as e:
             pass  # Keep zeros
         
-        # ALWAYS calculate compliance score from the counts (never rely on API)
-        # Formula: 100 - (critical × 10) - (high × 5) - (medium × 2)
-        compliance_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        # Calculate compliance score using scalable percentage-based formula
+        compliance_score = calculate_severity_score(critical, high, medium, total)
         
         sec_hub_data = {
             'compliance_score': round(compliance_score, 1),
@@ -5168,6 +5167,48 @@ def offboard_aws_account(
 # PORTFOLIO & SCORING FUNCTIONS
 # ============================================================================
 
+def calculate_severity_score(critical: int, high: int, medium: int, total: int) -> float:
+    """
+    Calculate compliance score using a scalable percentage-based formula.
+    
+    This formula works for both small finding counts (single account) and
+    large enterprise-scale data (hundreds or thousands of findings).
+    
+    Scoring approach:
+    - 100% = No findings (perfect compliance)
+    - Score decreases based on PERCENTAGE of findings at each severity level
+    - Critical findings have highest impact, low findings have minimal impact
+    - Formula naturally scales regardless of total finding count
+    """
+    if total == 0:
+        return 100.0
+    
+    # Calculate percentage of findings at each severity level
+    critical_pct = (critical / total) * 100
+    high_pct = (high / total) * 100
+    medium_pct = (medium / total) * 100
+    
+    # Severity-weighted penalty:
+    # - Critical: Each 1% of critical findings = 0.5 point penalty (max 50 pts if all critical)
+    # - High: Each 1% of high findings = 0.3 point penalty (max 30 pts if all high)
+    # - Medium: Each 1% of medium findings = 0.15 point penalty (max 15 pts if all medium)
+    # - Low/Info: Minimal impact (remaining 5 pts buffer)
+    critical_penalty = critical_pct * 0.5
+    high_penalty = high_pct * 0.3
+    medium_penalty = medium_pct * 0.15
+    
+    # Also apply a small density penalty for very high finding counts
+    # This encourages reducing total findings, not just shifting severity
+    # Cap at 10 points for 1000+ findings
+    density_penalty = min(10.0, total / 100.0)
+    
+    # Calculate final score
+    total_penalty = critical_penalty + high_penalty + medium_penalty + density_penalty
+    score = max(0.0, 100.0 - total_penalty)
+    
+    return round(score, 1)
+
+
 def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
     """Calculate overall compliance score based on Security Hub findings"""
     
@@ -5188,12 +5229,13 @@ def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
         if total_findings == 0 and 'findings_by_severity' in data:
             return 100.0
         elif total_findings > 0:
-            # Calculate based on severity - SAME FORMULA everywhere
+            # Calculate based on severity using scalable percentage-based formula
             critical = data.get('critical', 0)
             high = data.get('high', 0)
             medium = data.get('medium', 0)
-            # Weighted score: critical -10%, high -5%, medium -2%
-            score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+            
+            # Use the new scalable formula
+            score = calculate_severity_score(critical, high, medium, total_findings)
             return score
     
     # SECONDARY: If no data passed, check if AWS is connected
@@ -5270,11 +5312,12 @@ def get_portfolio_stats(portfolio: str) -> Dict[str, Any]:
         # Count severities
         critical_count = len([f for f in portfolio_findings if f.get('Severity', {}).get('Label') == 'CRITICAL'])
         high_count = len([f for f in portfolio_findings if f.get('Severity', {}).get('Label') == 'HIGH'])
+        medium_count = len([f for f in portfolio_findings if f.get('Severity', {}).get('Label') == 'MEDIUM'])
         
-        # Calculate compliance score
+        # Calculate compliance score using scalable percentage-based formula
         total_findings = len(portfolio_findings)
         if total_findings > 0:
-            compliance_score = max(0.0, 100.0 - (critical_count * 10) - (high_count * 5))
+            compliance_score = calculate_severity_score(critical_count, high_count, medium_count, total_findings)
         else:
             # No findings means 100% compliance (no security issues found)
             compliance_score = 100.0 if len(portfolio_accounts) > 0 else 0.0
@@ -5323,13 +5366,14 @@ def render_main_header():
 def render_overall_score_card(score: float, sec_hub_data: Dict = None):
     """Render overall compliance score card with dynamic metrics"""
     
-    # 🆕 RECALCULATE SCORE FROM SEC_HUB_DATA if it seems wrong
+    # Recalculate score from sec_hub_data if needed (score is 0 but we have data)
     if score == 0.0 and sec_hub_data and sec_hub_data.get('total_findings', 0) > 0:
-        # Score should not be 0 if we have findings - recalculate
+        # Score should reflect findings - recalculate using scalable formula
         critical = sec_hub_data.get('critical', 0)
         high = sec_hub_data.get('high', 0)
         medium = sec_hub_data.get('medium', 0)
-        score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        total = sec_hub_data.get('total_findings', 0)
+        score = calculate_severity_score(critical, high, medium, total)
         st.session_state.overall_compliance_score = score
     
     # Determine grade and color
@@ -8647,16 +8691,23 @@ def render_unified_compliance_dashboard():
     # Get Security Hub data from compliance_data
     sec_hub = compliance_data['aws_security_hub']
     
-    # ALWAYS recalculate Security Hub compliance score from findings data
-    # This ensures consistency - the score should match the findings
-    if sec_hub.get('total_findings', 0) > 0:
+    # 🆕 FIX: In DEMO mode, use pre-set scores directly (don't recalculate)
+    # The demo data has enterprise-scale finding counts that would break the formula
+    if is_demo:
+        # Use the pre-set compliance_score from demo data
+        overall_score = sec_hub.get('compliance_score', 87.5)
+        st.session_state.overall_compliance_score = overall_score
+    elif sec_hub.get('total_findings', 0) > 0:
+        # LIVE MODE: Recalculate Security Hub compliance score from findings data
+        # This ensures consistency - the score should match the findings
         critical = sec_hub.get('critical', 0)
         high = sec_hub.get('high', 0)
         medium = sec_hub.get('medium', 0)
-        calculated_score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
+        total = sec_hub.get('total_findings', 0)
+        calculated_score = calculate_severity_score(critical, high, medium, total)
         
         # Update the compliance_data with calculated score
-        compliance_data['aws_security_hub']['compliance_score'] = round(calculated_score, 1)
+        compliance_data['aws_security_hub']['compliance_score'] = calculated_score
         sec_hub = compliance_data['aws_security_hub']  # Refresh reference
         
         # Also update overall score

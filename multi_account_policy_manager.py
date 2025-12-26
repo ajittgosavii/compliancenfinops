@@ -49,17 +49,33 @@ class AWSOrganizationsManager:
         self._initialize_clients()
     
     def _initialize_clients(self):
-        """Initialize AWS clients"""
+        """Initialize AWS clients from session state (pre-initialized by main app)"""
         if not BOTO3_AVAILABLE:
             return
         
-        try:
-            self.org_client = boto3.client('organizations')
-            self.cfn_client = boto3.client('cloudformation')
-            self.config_client = boto3.client('config')
-            self.securityhub_client = boto3.client('securityhub')
-        except Exception as e:
-            st.warning(f"AWS client initialization: {e}")
+        # Get pre-initialized clients from session state
+        clients = st.session_state.get('aws_clients', {})
+        
+        # Use pre-initialized clients if available
+        self.org_client = clients.get('organizations')
+        self.cfn_client = clients.get('cloudformation')
+        self.config_client = clients.get('config')
+        self.securityhub_client = clients.get('securityhub')
+        
+        # Fallback: try to create from boto3_session
+        session = st.session_state.get('boto3_session')
+        if session:
+            try:
+                if not self.org_client:
+                    self.org_client = session.client('organizations', region_name='us-east-1')
+                if not self.cfn_client:
+                    self.cfn_client = session.client('cloudformation')
+                if not self.config_client:
+                    self.config_client = session.client('config')
+                if not self.securityhub_client:
+                    self.securityhub_client = session.client('securityhub')
+            except Exception as e:
+                st.warning(f"AWS client initialization: {e}")
     
     def get_organization_info(self) -> Dict:
         """Get organization details"""
@@ -274,11 +290,21 @@ class ConfigAggregatorManager:
         self._initialize_client()
     
     def _initialize_client(self):
-        if BOTO3_AVAILABLE:
-            try:
-                self.config_client = boto3.client('config')
-            except Exception:
-                pass
+        if not BOTO3_AVAILABLE:
+            return
+        
+        # Get from pre-initialized clients
+        clients = st.session_state.get('aws_clients', {})
+        self.config_client = clients.get('config')
+        
+        # Fallback: try boto3_session
+        if not self.config_client:
+            session = st.session_state.get('boto3_session')
+            if session:
+                try:
+                    self.config_client = session.client('config')
+                except Exception:
+                    pass
     
     def get_aggregator_compliance(self, aggregator_name: str = "organization-aggregator") -> Dict:
         """Get compliance summary from aggregator"""

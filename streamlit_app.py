@@ -232,14 +232,6 @@ except ImportError:
     POLICY_AS_CODE_AVAILABLE = False
     print("Note: policy_as_code_platform.py not found")
 
-# NEW: Multi-Account Policy Manager
-try:
-    from multi_account_policy_manager import render_multi_account_manager
-    MULTI_ACCOUNT_AVAILABLE = True
-except ImportError:
-    MULTI_ACCOUNT_AVAILABLE = False
-    print("Note: multi_account_policy_manager.py not found")
-
 try:
     from ai_threat_scene_6_PRODUCTION import render_ai_threat_analysis_scene
     AI_THREAT_AVAILABLE = True
@@ -491,21 +483,19 @@ except ImportError:
     EXTERNAL_FINOPS_AVAILABLE = False
     print("Note: External FinOps module not available, using built-in FinOps section")
 
-# NEW: Live FinOps Data Module (fetches REAL AWS data)
+# NEW: Import Live FinOps Data Module (fetches REAL AWS data for Budget Tracking)
 try:
     from finops_live_data import (
-        render_live_finops_dashboard,
         render_real_budget_tracking,
         render_real_optimization_recommendations,
-        render_real_cost_dashboard,
         fetch_real_cost_data,
-        fetch_real_budgets,
         is_live_mode
     )
     FINOPS_LIVE_AVAILABLE = True
-except ImportError:
+    print("✅ finops_live_data.py loaded - Real AWS data available")
+except ImportError as e:
     FINOPS_LIVE_AVAILABLE = False
-    print("Note: finops_live_data.py not available - using hardcoded demo data")
+    print(f"Note: finops_live_data.py not available: {e}")
     
 
 # Note: Uncomment these imports when deploying with required packages
@@ -10220,18 +10210,18 @@ def main():
                     padding: 1rem; border-radius: 12px; margin-bottom: 1rem;'>
             <h2 style='color: white; margin: 0;'>🚧 Tech Guardrails</h2>
             <p style='color: #94a3b8; margin: 0.5rem 0 0 0;'>
-                Enterprise Policy Management • Policy as Code • Multi-Account
+                Enterprise Policy Management & Policy as Code
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Mode selection - now with 3 options
+        # Mode selection
         guardrail_mode = st.radio(
             "Select Mode",
-            ["🏢 Enterprise Management", "🏛️ Policy as Code", "🌐 Multi-Account"],
+            ["🏢 Enterprise Management", "🏛️ Policy as Code"],
             horizontal=True,
             key="guardrail_mode_selector",
-            help="Enterprise: UI-based | Policy as Code: Code-first | Multi-Account: Organization-wide deployment"
+            help="Enterprise: UI-based workflow | Policy as Code: Code-first approach with testing"
         )
         
         st.markdown("---")
@@ -10257,7 +10247,7 @@ def main():
                 with guardrail_tabs[2]:
                     render_kics_scanning_tab_with_deployment()
         
-        elif guardrail_mode == "🏛️ Policy as Code":
+        else:  # Policy as Code mode
             if POLICY_AS_CODE_AVAILABLE:
                 render_policy_as_code_platform()
             else:
@@ -10279,30 +10269,6 @@ def main():
                 - ✅ GitOps deployment
                 
                 Upload `policy_as_code_platform.py` to enable this mode.
-                """)
-        
-        else:  # Multi-Account mode
-            if MULTI_ACCOUNT_AVAILABLE:
-                render_multi_account_manager()
-            else:
-                st.warning("⚠️ Upload `multi_account_policy_manager.py` for Multi-Account mode")
-                st.markdown("""
-                ### 🌐 Multi-Account Policy Management
-                
-                **Deploy policies across your entire AWS Organization:**
-                - StackSet-based deployment to all accounts
-                - Central compliance aggregation
-                - Cross-account visibility
-                - Organization-wide Config Rules
-                
-                **Features:**
-                - ✅ Deploy to multiple OUs at once
-                - ✅ Automatic deployment to new accounts
-                - ✅ Central compliance dashboard
-                - ✅ Cross-account non-compliant resource tracking
-                - ✅ CLI command reference
-                
-                Upload `multi_account_policy_manager.py` to enable this mode.
                 """)
     
     # Tab 5: Remediation (combined AI + Unified)
@@ -10692,8 +10658,12 @@ def main():
             if FINOPS_LIVE_AVAILABLE and not st.session_state.get('demo_mode', False):
                 render_real_budget_tracking()
             else:
-                # Fallback to hardcoded demo data
+                # Fallback to hardcoded data
                 st.subheader("📈 Budget Tracking & Forecasting")
+                
+                # Show info about live data
+                if not FINOPS_LIVE_AVAILABLE:
+                    st.info("💡 Upload `finops_live_data.py` to fetch real AWS Budget data")
                 
                 # Check demo mode for data
                 is_demo = st.session_state.get('demo_mode', False)
@@ -10704,8 +10674,7 @@ def main():
                     current_spend = 2.8  # $2.8M
                     forecasted = 2.95   # $2.95M
                 else:
-                    # Live mode placeholder - should use real data
-                    st.info("💡 Upload `finops_live_data.py` to fetch real AWS Budget data")
+                    # Live mode data (hardcoded fallback)
                     total_budget = 18.0
                     current_spend = 15.4
                     forecasted = 16.2
@@ -10832,169 +10801,173 @@ def main():
                         st.write(f"{util_color} {row['Utilization']}%")
         
         with finops_tabs[3]:
-            # Optimization Recommendations Implementation
-            st.subheader("📊 Cost Optimization Recommendations")
-            
-            is_demo = st.session_state.get('demo_mode', False)
-            
-            if is_demo:
-                total_savings = 285000  # $285K/month
-                opportunities = [
-                    {
-                        'title': 'Right-size EC2 Instances',
-                        'category': 'Compute',
-                        'savings': 125000,
-                        'effort': 'Low',
-                        'impact': 'High',
-                        'description': '45 over-provisioned EC2 instances detected. Average utilization: 23%.',
-                        'recommendation': 'Downsize to smaller instance types based on actual usage patterns.',
-                        'accounts': ['prod-001', 'prod-002', 'staging-001']
-                    },
-                    {
-                        'title': 'Delete Unused EBS Volumes',
-                        'category': 'Storage',
-                        'savings': 85000,
-                        'effort': 'Low',
-                        'impact': 'Medium',
-                        'description': '234 unattached EBS volumes consuming storage costs.',
-                        'recommendation': 'Review and delete volumes not attached for 30+ days.',
-                        'accounts': ['prod-001', 'dev-001', 'test-001']
-                    },
-                    {
-                        'title': 'Implement S3 Lifecycle Policies',
-                        'category': 'Storage',
-                        'savings': 75000,
-                        'effort': 'Medium',
-                        'impact': 'Medium',
-                        'description': '12TB of S3 data in Standard storage rarely accessed.',
-                        'recommendation': 'Move to S3 Intelligent-Tiering or Glacier for infrequent access.',
-                        'accounts': ['prod-001', 'prod-002']
-                    }
-                ]
+            # Optimization Recommendations - Use live data module if available
+            if FINOPS_LIVE_AVAILABLE and not st.session_state.get('demo_mode', False):
+                render_real_optimization_recommendations()
             else:
-                total_savings = 1950000
-                opportunities = [
-                    {
-                        'title': 'Purchase Compute Savings Plans',
-                        'category': 'Commitment',
-                        'savings': 850000,
-                        'effort': 'Low',
-                        'impact': 'High',
-                        'description': '$2.1M/month on-demand compute spend eligible for Savings Plans.',
-                        'recommendation': '1-year Compute Savings Plan for steady-state workloads.',
-                        'accounts': ['All production accounts']
-                    },
-                    {
-                        'title': 'Right-size RDS Instances',
-                        'category': 'Database',
-                        'savings': 520000,
-                        'effort': 'Medium',
-                        'impact': 'High',
-                        'description': '78 RDS instances with <30% CPU utilization.',
-                        'recommendation': 'Downsize or consolidate low-utilization databases.',
-                        'accounts': ['prod-*', 'staging-*']
-                    },
-                    {
-                        'title': 'Optimize Data Transfer Costs',
-                        'category': 'Networking',
-                        'savings': 380000,
-                        'effort': 'High',
-                        'impact': 'Medium',
-                        'description': 'High cross-region data transfer costs detected.',
-                        'recommendation': 'Implement VPC endpoints and optimize data flow architecture.',
-                        'accounts': ['All accounts']
-                    }
-                ]
-            
-            # Summary Metrics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Potential Savings", 
-                         f"${total_savings/1000:.0f}K/month",
-                         delta=f"~${total_savings*12/1000000:.1f}M/year")
-            with col2:
-                st.metric("Optimization Score", 
-                         "72/100",
-                         delta="+8 vs last month")
-            with col3:
-                st.metric("Opportunities", 
-                         len(opportunities),
-                         delta="+1 this week")
-            
-            st.markdown("---")
-            
-            # Savings by Category Chart
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                st.markdown("### Savings Potential by Category")
+                # Fallback to hardcoded data
+                st.subheader("📊 Cost Optimization Recommendations")
                 
-                categories = {}
-                for opp in opportunities:
-                    cat = opp['category']
-                    if cat not in categories:
-                        categories[cat] = 0
-                    categories[cat] += opp['savings']
+                is_demo = st.session_state.get('demo_mode', False)
                 
-                fig = go.Figure(data=[go.Pie(
-                    labels=list(categories.keys()),
-                    values=list(categories.values()),
-                    hole=0.4,
-                    marker_colors=['#88C0D0', '#28a745', '#ffc107', '#B48EAD', '#5E81AC']
-                )])
+                if is_demo:
+                    total_savings = 285000  # $285K/month
+                    opportunities = [
+                        {
+                            'title': 'Right-size EC2 Instances',
+                            'category': 'Compute',
+                            'savings': 125000,
+                            'effort': 'Low',
+                            'impact': 'High',
+                            'description': '45 over-provisioned EC2 instances detected. Average utilization: 23%.',
+                            'recommendation': 'Downsize to smaller instance types based on actual usage patterns.',
+                            'accounts': ['prod-001', 'prod-002', 'staging-001']
+                        },
+                        {
+                            'title': 'Delete Unused EBS Volumes',
+                            'category': 'Storage',
+                            'savings': 85000,
+                            'effort': 'Low',
+                            'impact': 'Medium',
+                            'description': '234 unattached EBS volumes consuming storage costs.',
+                            'recommendation': 'Review and delete volumes not attached for 30+ days.',
+                            'accounts': ['prod-001', 'dev-001', 'test-001']
+                        },
+                        {
+                            'title': 'Implement S3 Lifecycle Policies',
+                            'category': 'Storage',
+                            'savings': 75000,
+                            'effort': 'Medium',
+                            'impact': 'Medium',
+                            'description': '12TB of S3 data in Standard storage rarely accessed.',
+                            'recommendation': 'Move to S3 Intelligent-Tiering or Glacier for infrequent access.',
+                            'accounts': ['prod-001', 'prod-002']
+                        }
+                    ]
+                else:
+                    total_savings = 1950000
+                    opportunities = [
+                        {
+                            'title': 'Purchase Compute Savings Plans',
+                            'category': 'Commitment',
+                            'savings': 850000,
+                            'effort': 'Low',
+                            'impact': 'High',
+                            'description': '$2.1M/month on-demand compute spend eligible for Savings Plans.',
+                            'recommendation': '1-year Compute Savings Plan for steady-state workloads.',
+                            'accounts': ['All production accounts']
+                        },
+                        {
+                            'title': 'Right-size RDS Instances',
+                            'category': 'Database',
+                            'savings': 520000,
+                            'effort': 'Medium',
+                            'impact': 'High',
+                            'description': '78 RDS instances with <30% CPU utilization.',
+                            'recommendation': 'Downsize or consolidate low-utilization databases.',
+                            'accounts': ['prod-*', 'staging-*']
+                        },
+                        {
+                            'title': 'Optimize Data Transfer Costs',
+                            'category': 'Networking',
+                            'savings': 380000,
+                            'effort': 'High',
+                            'impact': 'Medium',
+                            'description': 'High cross-region data transfer costs detected.',
+                            'recommendation': 'Implement VPC endpoints and optimize data flow architecture.',
+                            'accounts': ['All accounts']
+                        }
+                    ]
                 
-                fig.update_layout(
-                    height=300,
-                    showlegend=True
-                )
+                # Summary Metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Potential Savings", 
+                             f"${total_savings/1000:.0f}K/month",
+                             delta=f"~${total_savings*12/1000000:.1f}M/year")
+                with col2:
+                    st.metric("Optimization Score", 
+                             "72/100",
+                             delta="+8 vs last month")
+                with col3:
+                    st.metric("Opportunities", 
+                             len(opportunities),
+                             delta="+1 this week")
                 
-                st.plotly_chart(fig, width="stretch")
-            
-            with col2:
-                st.markdown("### Quick Stats")
-                st.info(f"""
-                **Optimization Potential**
+                st.markdown("---")
                 
-                💰 Monthly: ${total_savings/1000:.0f}K
-                📅 Annual: ${total_savings*12/1000000:.1f}M
-                📊 ROI: {(total_savings/2800000)*100:.1f}%
+                # Savings by Category Chart
+                col1, col2 = st.columns([2, 1])
                 
-                **Top Category**
-                {max(categories, key=categories.get)}
-                ${max(categories.values())/1000:.0f}K savings
-                """)
-            
-            st.markdown("---")
-            
-            # Detailed Recommendations
-            st.markdown("### 💡 Detailed Recommendations")
-            
-            for idx, opp in enumerate(opportunities):
-                with st.expander(f"**{opp['title']}** - ${opp['savings']/1000:.0f}K/month savings", expanded=(idx==0)):
-                    col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown("### Savings Potential by Category")
                     
-                    with col1:
-                        effort_color = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
-                        st.markdown(f"**Effort:** {effort_color.get(opp['effort'], '⚪')} {opp['effort']}")
-                    with col2:
-                        impact_color = {'High': '🔴', 'Medium': '🟡', 'Low': '🟢'}
-                        st.markdown(f"**Impact:** {impact_color.get(opp['impact'], '⚪')} {opp['impact']}")
-                    with col3:
-                        st.markdown(f"**Category:** {opp['category']}")
+                    categories = {}
+                    for opp in opportunities:
+                        cat = opp['category']
+                        if cat not in categories:
+                            categories[cat] = 0
+                        categories[cat] += opp['savings']
                     
-                    st.markdown("---")
+                    fig = go.Figure(data=[go.Pie(
+                        labels=list(categories.keys()),
+                        values=list(categories.values()),
+                        hole=0.4,
+                        marker_colors=['#88C0D0', '#28a745', '#ffc107', '#B48EAD', '#5E81AC']
+                    )])
                     
-                    st.markdown(f"**📋 Description:**\n{opp['description']}")
-                    st.markdown(f"**✅ Recommendation:**\n{opp['recommendation']}")
-                    st.markdown(f"**🏢 Affected Accounts:**\n{', '.join(opp['accounts'])}")
+                    fig.update_layout(
+                        height=300,
+                        showlegend=True
+                    )
                     
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button(f"📊 View Details", key=f"view_{idx}"):
-                            st.info("Detailed analysis coming soon")
-                    with col2:
-                        if st.button(f"🚀 Implement", key=f"impl_{idx}", type="primary"):
-                            st.success("Implementation workflow initiated!")
+                    st.plotly_chart(fig, width="stretch")
+                
+                with col2:
+                    st.markdown("### Quick Stats")
+                    st.info(f"""
+                    **Optimization Potential**
+                    
+                    💰 Monthly: ${total_savings/1000:.0f}K
+                    📅 Annual: ${total_savings*12/1000000:.1f}M
+                    📊 ROI: {(total_savings/2800000)*100:.1f}%
+                    
+                    **Top Category**
+                    {max(categories, key=categories.get)}
+                    ${max(categories.values())/1000:.0f}K savings
+                    """)
+                
+                st.markdown("---")
+                
+                # Detailed Recommendations
+                st.markdown("### 💡 Detailed Recommendations")
+                
+                for idx, opp in enumerate(opportunities):
+                    with st.expander(f"**{opp['title']}** - ${opp['savings']/1000:.0f}K/month savings", expanded=(idx==0)):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            effort_color = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+                            st.markdown(f"**Effort:** {effort_color.get(opp['effort'], '⚪')} {opp['effort']}")
+                        with col2:
+                            impact_color = {'High': '🔴', 'Medium': '🟡', 'Low': '🟢'}
+                            st.markdown(f"**Impact:** {impact_color.get(opp['impact'], '⚪')} {opp['impact']}")
+                        with col3:
+                            st.markdown(f"**Category:** {opp['category']}")
+                        
+                        st.markdown("---")
+                        
+                        st.markdown(f"**📋 Description:**\n{opp['description']}")
+                        st.markdown(f"**✅ Recommendation:**\n{opp['recommendation']}")
+                        st.markdown(f"**🏢 Affected Accounts:**\n{', '.join(opp['accounts'])}")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button(f"📊 View Details", key=f"view_{idx}"):
+                                st.info("Detailed analysis coming soon")
+                        with col2:
+                            if st.button(f"🚀 Implement", key=f"impl_{idx}", type="primary"):
+                                st.success("Implementation workflow initiated!")
     
     
                 # Create sub-tabs for FinOps

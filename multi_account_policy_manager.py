@@ -345,11 +345,15 @@ class ConfigAggregatorManager:
             
             resources = []
             for result in response.get('AggregateEvaluationResults', []):
+                # Safely access nested keys
+                eval_id = result.get('EvaluationResultIdentifier', {})
+                qualifier = eval_id.get('EvaluationResultQualifier', {})
+                
                 resources.append({
                     'account_id': result.get('AccountId'),
                     'region': result.get('AwsRegion'),
-                    'resource_type': result['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceType'],
-                    'resource_id': result['EvaluationResultIdentifier']['EvaluationResultQualifier']['ResourceId'],
+                    'resource_type': qualifier.get('ResourceType', 'Unknown'),
+                    'resource_id': qualifier.get('ResourceId', 'Unknown'),
                     'compliance': result.get('ComplianceType')
                 })
             
@@ -675,11 +679,19 @@ def render_compliance_dashboard():
     by_rule = compliance.get('by_rule', [])
     by_account = compliance.get('by_account', [])
     
-    compliant_rules = len([r for r in by_rule if r['Compliance']['ComplianceType'] == 'COMPLIANT'])
+    # Safely count compliant rules
+    compliant_rules = len([r for r in by_rule if r.get('Compliance', {}).get('ComplianceType') == 'COMPLIANT'])
     total_rules = len(by_rule)
     
-    total_compliant = sum([a['ComplianceSummary']['CompliantResourceCount']['CappedCount'] for a in by_account])
-    total_non_compliant = sum([a['ComplianceSummary']['NonCompliantResourceCount']['CappedCount'] for a in by_account])
+    # Safely sum compliant/non-compliant counts
+    total_compliant = sum([
+        a.get('ComplianceSummary', {}).get('CompliantResourceCount', {}).get('CappedCount', 0) 
+        for a in by_account
+    ])
+    total_non_compliant = sum([
+        a.get('ComplianceSummary', {}).get('NonCompliantResourceCount', {}).get('CappedCount', 0) 
+        for a in by_account
+    ])
     total_resources = total_compliant + total_non_compliant
     
     compliance_score = (total_compliant / total_resources * 100) if total_resources > 0 else 100
@@ -700,50 +712,66 @@ def render_compliance_dashboard():
         
         rule_data = []
         for rule in by_rule:
+            # Safely access nested keys
+            compliance = rule.get('Compliance', {})
+            contributor_count = compliance.get('ComplianceContributorCount', {})
+            
             rule_data.append({
-                'Rule': rule['ConfigRuleName'].replace('-', ' ').title()[:25],
-                'Status': rule['Compliance']['ComplianceType'],
-                'Non-Compliant': rule['Compliance']['ComplianceContributorCount']['CappedCount']
+                'Rule': rule.get('ConfigRuleName', 'Unknown').replace('-', ' ').title()[:25],
+                'Status': compliance.get('ComplianceType', 'UNKNOWN'),
+                'Non-Compliant': contributor_count.get('CappedCount', 0)
             })
         
-        df_rules = pd.DataFrame(rule_data)
-        
-        fig = px.bar(
-            df_rules,
-            x='Rule',
-            y='Non-Compliant',
-            color='Status',
-            color_discrete_map={'COMPLIANT': '#10b981', 'NON_COMPLIANT': '#ef4444'},
-            title=''
-        )
-        fig.update_layout(height=300, showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
+        if rule_data:
+            df_rules = pd.DataFrame(rule_data)
+            
+            fig = px.bar(
+                df_rules,
+                x='Rule',
+                y='Non-Compliant',
+                color='Status',
+                color_discrete_map={'COMPLIANT': '#10b981', 'NON_COMPLIANT': '#ef4444', 'UNKNOWN': '#6b7280'},
+                title=''
+            )
+            fig.update_layout(height=300, showlegend=True)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No rule compliance data available")
     
     with col2:
         st.markdown("#### Compliance by Account")
         
         account_data = []
         for account in by_account:
-            compliant = account['ComplianceSummary']['CompliantResourceCount']['CappedCount']
-            non_compliant = account['ComplianceSummary']['NonCompliantResourceCount']['CappedCount']
+            # Safely access nested keys
+            summary = account.get('ComplianceSummary', {})
+            compliant_count = summary.get('CompliantResourceCount', {})
+            non_compliant_count = summary.get('NonCompliantResourceCount', {})
+            
+            compliant = compliant_count.get('CappedCount', 0)
+            non_compliant = non_compliant_count.get('CappedCount', 0)
             total = compliant + non_compliant
             score = (compliant / total * 100) if total > 0 else 100
             
             account_data.append({
-                'Account': account['GroupName'][-6:],  # Last 6 digits
+                'Account': account.get('GroupName', 'Unknown')[-6:],  # Last 6 digits
                 'Compliant': compliant,
                 'Non-Compliant': non_compliant,
                 'Score': f"{score:.0f}%"
             })
         
-        df_accounts = pd.DataFrame(account_data)
-        st.dataframe(df_accounts, use_container_width=True, hide_index=True)
+        if account_data:
+            df_accounts = pd.DataFrame(account_data)
+            st.dataframe(df_accounts, use_container_width=True, hide_index=True)
+        else:
+            st.info("No account compliance data available")
     
     # Non-compliant resources detail
     st.markdown("---")
     st.markdown("#### 🔍 Non-Compliant Resources")
     
-    rule_names = [r['ConfigRuleName'] for r in by_rule if r['Compliance']['ComplianceType'] == 'NON_COMPLIANT']
+    rule_names = [r.get('ConfigRuleName', '') for r in by_rule 
+                  if r.get('Compliance', {}).get('ComplianceType') == 'NON_COMPLIANT']
     
     if rule_names:
         selected_rule = st.selectbox("Select Rule to View Details", rule_names)

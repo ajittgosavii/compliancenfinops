@@ -232,6 +232,15 @@ except ImportError:
     POLICY_AS_CODE_AVAILABLE = False
     print("Note: policy_as_code_platform.py not found")
 
+# NEW: Multi-Account Policy Manager (AWS Organizations, StackSets, Config Aggregator)
+try:
+    from multi_account_policy_manager import render_multi_account_policy_manager
+    MULTI_ACCOUNT_AVAILABLE = True
+    print("✅ multi_account_policy_manager.py loaded")
+except ImportError:
+    MULTI_ACCOUNT_AVAILABLE = False
+    print("Note: multi_account_policy_manager.py not found")
+
 try:
     from ai_threat_scene_6_PRODUCTION import render_ai_threat_analysis_scene
     AI_THREAT_AVAILABLE = True
@@ -10210,18 +10219,18 @@ def main():
                     padding: 1rem; border-radius: 12px; margin-bottom: 1rem;'>
             <h2 style='color: white; margin: 0;'>🚧 Tech Guardrails</h2>
             <p style='color: #94a3b8; margin: 0.5rem 0 0 0;'>
-                Enterprise Policy Management & Policy as Code
+                Enterprise Policy Management • Policy as Code • Multi-Account Deployment
             </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Mode selection
+        # Mode selection - NOW WITH 3 OPTIONS
         guardrail_mode = st.radio(
             "Select Mode",
-            ["🏢 Enterprise Management", "🏛️ Policy as Code"],
+            ["🏢 Enterprise Management", "🏛️ Policy as Code", "🌐 Multi-Account"],
             horizontal=True,
             key="guardrail_mode_selector",
-            help="Enterprise: UI-based workflow | Policy as Code: Code-first approach with testing"
+            help="Enterprise: UI-based workflow | Policy as Code: Code-first with testing | Multi-Account: Organization-wide deployment"
         )
         
         st.markdown("---")
@@ -10247,7 +10256,7 @@ def main():
                 with guardrail_tabs[2]:
                     render_kics_scanning_tab_with_deployment()
         
-        else:  # Policy as Code mode
+        elif guardrail_mode == "🏛️ Policy as Code":
             if POLICY_AS_CODE_AVAILABLE:
                 render_policy_as_code_platform()
             else:
@@ -10269,6 +10278,32 @@ def main():
                 - ✅ GitOps deployment
                 
                 Upload `policy_as_code_platform.py` to enable this mode.
+                """)
+        
+        else:  # Multi-Account mode
+            if MULTI_ACCOUNT_AVAILABLE:
+                render_multi_account_policy_manager()
+            else:
+                st.warning("⚠️ Upload `multi_account_policy_manager.py` for Multi-Account mode")
+                st.markdown("""
+                ### 🌐 Multi-Account Policy Deployment
+                
+                **Deploy policies across your AWS Organization:**
+                
+                | Feature | Description |
+                |---------|-------------|
+                | 🏛️ **AWS Organizations** | View accounts, OUs, organization structure |
+                | 📦 **CloudFormation StackSets** | Deploy Config Rules org-wide |
+                | 📊 **Config Aggregator** | Cross-account compliance dashboard |
+                | 📜 **Deployment History** | Track all deployments |
+                | 💻 **CLI Commands** | PowerShell/AWS CLI reference |
+                
+                **Workflow:**
+                1. **Policy as Code** → Test locally with OPA/Conftest
+                2. **Multi-Account** → Deploy to entire organization via StackSets
+                3. **Monitor** → Cross-account compliance via Config Aggregator
+                
+                Upload `multi_account_policy_manager.py` to enable this mode.
                 """)
     
     # Tab 5: Remediation (combined AI + Unified)

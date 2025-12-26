@@ -1871,6 +1871,7 @@ def get_aws_clients(access_key: str = None, secret_key: str = None, region: str 
                         'lambda': session.client('lambda'),
                         's3': session.client('s3'),
                         'ec2': session.client('ec2'),
+                        'ecr': session.client('ecr'),  # Container Registry for Inspector scanning
                         
                         # Monitoring
                         'cloudwatch': session.client('cloudwatch'),
@@ -1995,6 +1996,7 @@ def get_aws_clients(access_key: str = None, secret_key: str = None, region: str 
             'lambda': session.client('lambda'),
             's3': session.client('s3'),
             'ec2': session.client('ec2'),
+            'ecr': session.client('ecr'),  # Container Registry for Inspector scanning
             
             # Monitoring
             'cloudwatch': session.client('cloudwatch'),

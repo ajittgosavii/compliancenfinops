@@ -1576,7 +1576,8 @@ def get_compliance_data_for_mode():
     - Live mode: Real AWS data from Security Hub and Config
     """
     is_demo = st.session_state.get('demo_mode', False)
-    is_connected = st.session_state.get('aws_connected', False)
+    # Check BOTH aws_connected AND presence of aws_clients
+    is_connected = st.session_state.get('aws_connected', False) or bool(st.session_state.get('aws_clients', {}))
     
     if is_demo:
         # DEMO MODE - Return sample data
@@ -5174,11 +5175,8 @@ def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
     if st.session_state.get('demo_mode', False):
         return 91.3  # Demo value
     
-    # LIVE MODE
-    if not st.session_state.get('aws_connected'):
-        return 0.0
-    
     # PRIMARY: Calculate from Security Hub findings passed to this function
+    # Check data FIRST before checking aws_connected flag
     if data and isinstance(data, dict):
         # Check if Security Hub service is not enabled
         if data.get('service_status') == 'NOT_ENABLED':
@@ -5198,7 +5196,11 @@ def calculate_overall_compliance_score(data: Dict[str, Any]) -> float:
             score = max(0.0, 100.0 - (critical * 10) - (high * 5) - (medium * 2))
             return score
     
-    # SECONDARY: Try AWS Config compliance rate as fallback
+    # SECONDARY: If no data passed, check if AWS is connected
+    if not st.session_state.get('aws_connected') and not st.session_state.get('aws_clients'):
+        return 0.0
+    
+    # TERTIARY: Try AWS Config compliance rate as fallback
     config_data = st.session_state.get('config_data', {})
     if config_data:
         # Check both possible key names

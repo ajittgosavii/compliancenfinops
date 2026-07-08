@@ -10136,17 +10136,9 @@ def main():
     # ===== SSO AUTHENTICATION CHECK =====
     # Azure AD SSO takes priority over Enterprise features
     if SSO_AVAILABLE:
-        # Check if Azure AD is configured
-        try:
-            azure_config = st.secrets.get('azure_ad', {})
-            sso_enabled = (
-                azure_config.get('client_id') and 
-                azure_config.get('client_secret') and
-                azure_config.get('tenant_id')
-            )
-        except:
-            sso_enabled = False
-        
+        # Azure SSO removed — always require the built-in credential login
+        sso_enabled = True
+
         if sso_enabled:
             # Check if user is authenticated
             if not st.session_state.get('authenticated', False):

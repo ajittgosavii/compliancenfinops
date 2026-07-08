@@ -639,170 +639,54 @@ def get_auth_manager():
 # ============================================================================
 
 def render_login():
-    """Render login page with Azure AD / Microsoft SSO"""
-    
-    # Check if already authenticated
+    """Simple built-in credential login (Azure SSO removed).
+
+    Users can be configured via secrets under [app_users] as either
+    email = "password"  (role defaults to super_admin) or
+    [app_users.email] with password/role/name keys. If none are configured a
+    small demo set is used. On success the same session shape used across the
+    app is populated via SessionManager.login().
+    """
     if st.session_state.get('authenticated', False):
         return
-    
-    # Get Azure AD config from secrets
+
+    # ---- Resolve the user directory (configurable via secrets, else demo) ----
+    default_users = {
+        "admin@compliance.local":    {"password": "admin123",    "role": "super_admin",      "name": "Administrator"},
+        "security@compliance.local": {"password": "security123", "role": "security_manager", "name": "Security Manager"},
+        "finops@compliance.local":   {"password": "finops123",   "role": "finops_analyst",   "name": "FinOps Analyst"},
+        "viewer@compliance.local":   {"password": "viewer123",   "role": "viewer",           "name": "Viewer"},
+    }
     try:
-        azure_config = st.secrets.get('azure_ad', {})
-        client_id = azure_config.get('client_id', '')
-        client_secret = azure_config.get('client_secret', '')
-        tenant_id = azure_config.get('tenant_id', 'common')
-        redirect_uri = azure_config.get('redirect_uri', '')
-    except Exception as e:
-        st.error("❌ Azure AD not configured. Please add azure_ad section to secrets.toml")
-        st.stop()
-        return
-    
-    if not client_id or not client_secret:
-        st.error("❌ Azure AD credentials missing. Please configure azure_ad in secrets.toml")
-        st.info("""
-        **Required secrets.toml configuration:**
-        ```toml
-        [azure_ad]
-        tenant_id = "your-tenant-id"
-        client_id = "your-client-id"
-        client_secret = "your-client-secret"
-        redirect_uri = "https://your-app.streamlit.app"
-        ```
-        """)
-        st.stop()
-        return
-    
-    # Handle OAuth callback
-    query_params = st.query_params
-    
-    if 'code' in query_params:
-        # Exchange code for token
-        with st.spinner("🔐 Signing in with Microsoft..."):
-            code = query_params.get('code')
-            
-            token_response = exchange_code_for_token(
-                code=code,
-                client_id=client_id,
-                client_secret=client_secret,
-                redirect_uri=redirect_uri,
-                tenant_id=tenant_id
-            )
-            
-            if token_response and 'access_token' in token_response:
-                user_info = get_user_info(token_response['access_token'])
-                
-                if user_info:
-                    # Determine role based on email
-                    email = user_info.get('email', '')
-                    default_role = get_role_for_email(email)
-                    
-                    # Try to get/create user in Firebase
-                    try:
-                        from auth_database_firebase import get_database_manager
-                        db_manager = get_database_manager()
-                        
-                        if db_manager:
-                            user_id = user_info['id']
-                            
-                            # Check if user exists
-                            try:
-                                existing_user = db_manager.get_user(user_id)
-                                is_new_user = not (existing_user and isinstance(existing_user, dict))
-                            except:
-                                is_new_user = True
-                            
-                            if is_new_user:
-                                # New user - assign role based on email
-                                user_info['role'] = default_role
-                                user_info['is_active'] = True
-                                db_manager.create_or_update_user(user_info)
-                                final_user_info = user_info
-                            else:
-                                # Existing user - update info but preserve role from Firebase
-                                update_data = {
-                                    'id': user_info['id'],
-                                    'email': user_info['email'],
-                                    'name': user_info.get('name', ''),
-                                    'given_name': user_info.get('given_name', ''),
-                                    'family_name': user_info.get('family_name', '')
-                                }
-                                db_manager.create_or_update_user(update_data)
-                                
-                                # Load from Firebase to get actual role
-                                final_user_info = db_manager.get_user(user_id) or user_info
-                                
-                                # If Firebase role is viewer but email warrants higher role, upgrade
-                                firebase_role = final_user_info.get('role', 'viewer')
-                                if firebase_role == 'viewer' and default_role != 'viewer':
-                                    final_user_info['role'] = default_role
-                                    db_manager.create_or_update_user(final_user_info)
-                        else:
-                            # No Firebase - use email-based role
-                            user_info['role'] = default_role
-                            final_user_info = user_info
-                            
-                    except ImportError:
-                        # Firebase not available - use email-based role
-                        user_info['role'] = default_role
-                        final_user_info = user_info
-                    except Exception as e:
-                        print(f"Firebase error: {e}")
-                        user_info['role'] = default_role
-                        final_user_info = user_info
-                    
-                    # Set session state
-                    SessionManager.login(final_user_info)
-                    
-                    # Clear query params and rerun
-                    st.query_params.clear()
-                    st.success(f"✅ Login successful! Role: {final_user_info.get('role', 'viewer')}")
-                    st.rerun()
-                else:
-                    st.error("❌ Could not retrieve user information")
-                    if st.button("🔄 Try Again"):
-                        st.query_params.clear()
-                        st.rerun()
-            else:
-                if st.button("🔄 Try Again"):
-                    st.query_params.clear()
-                    st.rerun()
-    
-    elif 'error' in query_params:
-        error = query_params.get('error', 'unknown')
-        error_desc = query_params.get('error_description', 'No description')
-        
-        st.error("❌ Authentication Error")
-        st.warning(f"**Error:** {error}")
-        st.info(error_desc)
-        
-        if st.button("🔄 Try Again"):
-            st.query_params.clear()
-            st.rerun()
-    
-    else:
-        # Show login page
-        from urllib.parse import quote
-        
-        # Build OAuth authorization URL
-        authority = f"https://login.microsoftonline.com/{tenant_id}"
-        scopes = "openid profile email https://graph.microsoft.com/User.Read"
-        
-        auth_url = (
-            f"{authority}/oauth2/v2.0/authorize?"
-            f"client_id={client_id}&"
-            f"response_type=code&"
-            f"redirect_uri={quote(redirect_uri, safe='')}&"
-            f"response_mode=query&"
-            f"scope={quote(scopes)}&"
-            f"prompt=select_account"
-        )
-        
-        # Stunning, dynamic SSO login experience
-        st.markdown("""
+        configured = st.secrets.get("app_users", {})
+    except Exception:
+        configured = {}
+
+    users = {}
+    try:
+        items = configured.items() if hasattr(configured, "items") else []
+    except Exception:
+        items = []
+    for email, val in items:
+        key = str(email).strip().lower()
+        if hasattr(val, "get"):
+            users[key] = {"password": str(val.get("password", "")),
+                          "role": val.get("role", "viewer"),
+                          "name": val.get("name", key.split("@")[0].title())}
+        else:
+            users[key] = {"password": str(val), "role": "super_admin",
+                          "name": key.split("@")[0].title()}
+    if not users:
+        users = {k.lower(): v for k, v in default_users.items()}
+    using_demo = not configured
+
+    # ---- Immersive animated styling ----
+    st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 #MainMenu, header[data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"]{display:none!important;}
-.block-container{padding-top:0!important;max-width:100%!important;}
+.block-container{padding-top:2.2rem!important;max-width:1180px;}
+html,body,[class*="css"]{font-family:'Inter',sans-serif;}
 .stApp{background:#040a17;background-image:
  radial-gradient(closest-side at 15% 20%, rgba(34,211,238,.40), transparent 70%),
  radial-gradient(closest-side at 85% 15%, rgba(0,124,195,.45), transparent 70%),
@@ -815,37 +699,37 @@ def render_login():
 .cc-orb.o2{width:90px;height:90px;top:70%;left:14%;background:radial-gradient(circle,#14B8A6,transparent);animation-delay:-4s;}
 .cc-orb.o3{width:160px;height:160px;top:20%;right:9%;background:radial-gradient(circle,#007CC3,transparent);animation-delay:-7s;}
 @keyframes ccfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-28px);}}
-.cc-wrap{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:2.5rem;align-items:center;justify-content:center;min-height:88vh;max-width:1180px;margin:0 auto;padding:2rem 1rem;font-family:'Inter',sans-serif;animation:ccrise .8s cubic-bezier(.2,.8,.2,1) both;}
+.cc-login{position:relative;z-index:2;animation:ccrise .8s cubic-bezier(.2,.8,.2,1) both;}
 @keyframes ccrise{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:none;}}
-.cc-hero{flex:1 1 440px;max-width:560px;}
-.cc-eyebrow{display:inline-flex;align-items:center;gap:6px;color:#67E8F9;font-weight:700;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;padding:6px 13px;border:1px solid rgba(103,232,249,.35);border-radius:999px;background:rgba(103,232,249,.08);}
-.cc-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:3.1rem;line-height:1.05;margin:1.1rem 0 .6rem;background:linear-gradient(90deg,#ffffff,#67E8F9,#5EEAD4,#ffffff);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:ccshimmer 7s linear infinite;}
+.cc-eyebrow{display:inline-block;color:#67E8F9;font-weight:700;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;padding:6px 13px;border:1px solid rgba(103,232,249,.35);border-radius:999px;background:rgba(103,232,249,.08);}
+.cc-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:3rem;line-height:1.05;margin:1.1rem 0 .6rem;background:linear-gradient(90deg,#ffffff,#67E8F9,#5EEAD4,#ffffff);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:ccshimmer 7s linear infinite;}
 @keyframes ccshimmer{to{background-position:300% 0;}}
-.cc-sub{color:#cbd5e1;font-size:1.05rem;max-width:480px;line-height:1.6;}
-.cc-chips{margin-top:1.4rem;display:flex;flex-wrap:wrap;gap:.5rem;}
+.cc-sub{color:#cbd5e1;font-size:1.02rem;max-width:470px;line-height:1.6;}
+.cc-chips{margin-top:1.35rem;display:flex;flex-wrap:wrap;gap:.5rem;}
 .cc-chip{color:#e2e8f0;font-size:.82rem;font-weight:600;padding:7px 13px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);}
 .cc-chip b{color:#67E8F9;}
-.cc-stats{margin-top:1.8rem;display:flex;gap:2rem;flex-wrap:wrap;}
+.cc-stats{margin-top:1.7rem;display:flex;gap:2rem;flex-wrap:wrap;}
 .cc-stat .n{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.35rem;color:#fff;}
 .cc-stat .l{color:#94a3b8;font-size:.76rem;}
-.cc-card{flex:0 0 380px;max-width:400px;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.5);border-radius:22px;box-shadow:0 30px 70px rgba(2,8,23,.55);padding:2.2rem 2rem;text-align:center;}
-.cc-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-size:26px;font-weight:800;color:#007CC3;letter-spacing:-.5px;font-family:'Plus Jakarta Sans',sans-serif;}
-.cc-brand .bar{width:4px;height:24px;background:linear-gradient(180deg,#007CC3,#5B2D8E);border-radius:2px;}
-.cc-appname{margin-top:1rem;font-size:1.25rem;font-weight:700;color:#0F172A;font-family:'Plus Jakarta Sans',sans-serif;}
-.cc-apptag{font-size:.85rem;color:#64748B;margin-top:.25rem;margin-bottom:1.5rem;}
-.cc-signin{display:inline-flex;align-items:center;justify-content:center;gap:11px;width:100%;padding:13px 20px;color:#fff!important;text-decoration:none!important;font-size:.95rem;font-weight:600;border-radius:11px;background:linear-gradient(135deg,#0078D4,#005A9E);box-shadow:0 10px 24px rgba(0,120,212,.4);transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;}
-.cc-signin:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(0,120,212,.5);filter:brightness(1.05);color:#fff!important;}
-.cc-ms{width:18px;height:18px;}
-.cc-secure{margin-top:1.3rem;font-size:.75rem;color:#94A3B8;display:flex;align-items:center;justify-content:center;gap:6px;}
-.cc-foot{margin-top:.4rem;font-size:.68rem;color:#CBD5E1;letter-spacing:.12em;}
-@media (max-width:820px){.cc-title{font-size:2.4rem;}.cc-wrap{min-height:auto;padding-top:3rem;}.cc-card{flex:1 1 320px;}}
+.cc-head{color:#F1F5F9;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.5rem;margin:.2rem 0 .1rem;}
+.cc-headsub{color:#94A3B8;font-size:.9rem;margin-bottom:.5rem;}
+[data-testid="stForm"]{background:rgba(255,255,255,.95);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.5);border-radius:20px;box-shadow:0 30px 70px rgba(2,8,23,.55);padding:1.8rem 1.6rem!important;}
+[data-testid="stForm"] label{color:#334155!important;font-weight:600;}
+[data-testid="stForm"] input{border-radius:10px!important;border:1px solid #dbe3ee!important;background:#fff!important;}
+[data-testid="stForm"] input:focus{border-color:#007CC3!important;box-shadow:0 0 0 3px rgba(0,124,195,.15)!important;}
+[data-testid="stFormSubmitButton"] button{width:100%;background:linear-gradient(135deg,#0EA5E9,#0369A1)!important;color:#fff!important;border:none!important;border-radius:11px!important;font-weight:700!important;padding:.6rem!important;box-shadow:0 10px 22px rgba(14,165,233,.4)!important;}
+[data-testid="stFormSubmitButton"] button:hover{filter:brightness(1.07);transform:translateY(-1px);}
+.cc-note{margin-top:.9rem;padding:.7rem .85rem;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#cbd5e1;font-size:.78rem;position:relative;z-index:2;}
+.cc-note code{color:#67E8F9;background:rgba(103,232,249,.12);padding:1px 6px;border-radius:5px;}
 </style>
 <div class="cc-orb o1"></div><div class="cc-orb o2"></div><div class="cc-orb o3"></div>
 """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-<div class="cc-wrap">
-<div class="cc-hero">
+    left, right = st.columns([1.05, 0.95], gap="large")
+
+    with left:
+        st.markdown("""
+<div class="cc-login">
 <span class="cc-eyebrow">◆ Infosys · Enterprise Cloud Governance</span>
 <div class="cc-title">Cloud Compliance<br>Canvas</div>
 <div class="cc-sub">Unify AWS compliance, security posture, guardrails and FinOps in one AI-powered control plane — from policy-as-code to automated remediation and cost intelligence.</div>
@@ -862,21 +746,46 @@ def render_login():
 <div class="cc-stat"><div class="n">AI-Powered</div><div class="l">Predictions &amp; fixes</div></div>
 </div>
 </div>
-<div class="cc-card">
-<div class="cc-brand"><div class="bar"></div>Infosys</div>
-<div class="cc-appname">Cloud Compliance Canvas</div>
-<div class="cc-apptag">Enterprise AWS Governance &amp; FinOps Platform</div>
-<a href="{auth_url}" class="cc-signin" target="_self">
-<svg class="cc-ms" viewBox="0 0 21 21"><rect width="10" height="10" fill="#F25022"/><rect x="11" width="10" height="10" fill="#7FBA00"/><rect y="11" width="10" height="10" fill="#00A4EF"/><rect x="11" y="11" width="10" height="10" fill="#FFB900"/></svg>
-Sign in with Microsoft
-</a>
-<div class="cc-secure">🔒 Secured with Microsoft Entra ID · Role-based access</div>
-<div class="cc-foot">ENTERPRISE CLOUD SOLUTIONS</div>
-</div>
-</div>
 """, unsafe_allow_html=True)
-        
-        st.stop()
+
+    with right:
+        st.markdown('<div class="cc-login"><div class="cc-head">🔐 Sign in</div>'
+                    '<div class="cc-headsub">Access your compliance workspace</div></div>',
+                    unsafe_allow_html=True)
+
+        with st.form("cc_login_form"):
+            email = st.text_input("Email", placeholder="admin@compliance.local")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            submitted = st.form_submit_button("🔓 Sign In", use_container_width=True)
+
+            if submitted:
+                key = (email or "").strip().lower()
+                user = users.get(key)
+                if user and password and password == user.get("password"):
+                    SessionManager.login({
+                        "id": key,
+                        "email": key,
+                        "name": user.get("name", "User"),
+                        "role": user.get("role", "viewer"),
+                    })
+                    st.success(f"Welcome, {user.get('name', 'User')}!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid email or password")
+
+        if using_demo:
+            st.markdown(
+                '<div class="cc-note"><b>Demo access</b> &nbsp;·&nbsp; '
+                '<code>admin@compliance.local / admin123</code> &nbsp; '
+                '<code>finops@compliance.local / finops123</code> &nbsp; '
+                '<code>viewer@compliance.local / viewer123</code><br>'
+                'Configure your own users under <code>[app_users]</code> in Streamlit secrets.</div>',
+                unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="cc-note">🔒 Secure access · role-based permissions</div>',
+                        unsafe_allow_html=True)
+
+    st.stop()
 
 
 # ============================================================================

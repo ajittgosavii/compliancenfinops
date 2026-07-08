@@ -2131,6 +2131,78 @@ def get_claude_client(api_key: str):
         st.error(f"Error initializing Claude client: {str(e)}")
         return None
 
+
+def resolve_anthropic_key():
+    """Resolve the Claude/Anthropic API key from any supported secret layout.
+
+    Accepts the sectioned form ([anthropic] api_key) AND the flat / env form
+    used by the other apps (top-level ANTHROPIC_API_KEY / CLAUDE_API_KEY /
+    claude_api_key, or the same names as environment variables). This lets the
+    exact same secrets that work in the DB-migration app work here too.
+    """
+    import os
+    try:
+        section = st.secrets.get("anthropic", {})
+        if hasattr(section, "get") and section.get("api_key"):
+            return section.get("api_key")
+    except Exception:
+        pass
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY", "anthropic_api_key", "claude_api_key"):
+        try:
+            val = st.secrets.get(name)
+            if val:
+                return val
+        except Exception:
+            pass
+    for name in ("ANTHROPIC_API_KEY", "CLAUDE_API_KEY"):
+        if os.environ.get(name):
+            return os.environ.get(name)
+    return None
+
+
+def resolve_aws_credentials():
+    """Resolve AWS credentials from any supported layout.
+
+    Order: [aws] section (access_key_id/secret_access_key or management_*),
+    then flat top-level secrets (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY), then
+    environment variables. Returns a dict; values may be '' if not found.
+    """
+    import os
+    try:
+        aws_secrets = st.secrets.get("aws", {}) or {}
+    except Exception:
+        aws_secrets = {}
+
+    def _sget(name):
+        try:
+            return st.secrets.get(name)
+        except Exception:
+            return None
+
+    access_key = (aws_secrets.get("access_key_id")
+                  or aws_secrets.get("management_access_key_id")
+                  or _sget("AWS_ACCESS_KEY_ID")
+                  or os.environ.get("AWS_ACCESS_KEY_ID") or "")
+    secret_key = (aws_secrets.get("secret_access_key")
+                  or aws_secrets.get("management_secret_access_key")
+                  or _sget("AWS_SECRET_ACCESS_KEY")
+                  or os.environ.get("AWS_SECRET_ACCESS_KEY") or "")
+    region = (aws_secrets.get("region")
+              or aws_secrets.get("default_region")
+              or _sget("AWS_DEFAULT_REGION") or _sget("AWS_REGION")
+              or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+              or "us-east-1")
+    session_token = (aws_secrets.get("session_token")
+                     or aws_secrets.get("aws_session_token")
+                     or _sget("AWS_SESSION_TOKEN")
+                     or os.environ.get("AWS_SESSION_TOKEN") or "")
+    return {
+        "access_key": str(access_key).strip(),
+        "secret_key": str(secret_key).strip(),
+        "region": str(region).strip(),
+        "session_token": str(session_token).strip(),
+    }
+
 # ============================================================================
 # AWS DATA FETCHING FUNCTIONS
 # ============================================================================
@@ -7212,16 +7284,15 @@ def render_sidebar():
         st.markdown("### 🔐 Credentials")
         
         try:
-            # Support both naming conventions for AWS credentials
+            # Support every credential layout: [aws] section, flat top-level
+            # secrets (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY), or env vars —
+            # so the same secrets used by the other apps work here too.
             aws_secrets = st.secrets.get("aws", {})
-            has_aws_standard = all(k in aws_secrets for k in ["access_key_id", "secret_access_key"])
-            has_aws_management = all(k in aws_secrets for k in ["management_access_key_id", "management_secret_access_key"])
-            has_aws = has_aws_standard or has_aws_management
-            
-            # Get the actual values using either naming convention
-            aws_access_key = aws_secrets.get('access_key_id') or aws_secrets.get('management_access_key_id', '')
-            aws_secret_key = aws_secrets.get('secret_access_key') or aws_secrets.get('management_secret_access_key', '')
-            aws_region = aws_secrets.get('region') or aws_secrets.get('default_region', 'us-east-1')
+            aws_creds = resolve_aws_credentials()
+            aws_access_key = aws_creds["access_key"]
+            aws_secret_key = aws_creds["secret_key"]
+            aws_region = aws_creds["region"]
+            has_aws = bool(aws_access_key and aws_secret_key)
             
             # Debug: Check for common issues
             access_key_issues = []
@@ -7253,7 +7324,8 @@ def render_sidebar():
                 if ' ' in aws_secret_key:
                     secret_key_issues.append("Contains spaces!")
             
-            has_claude = "api_key" in st.secrets.get("anthropic", {})
+            claude_key = resolve_anthropic_key()
+            has_claude = bool(claude_key)
             has_github = "token" in st.secrets.get("github", {})
             
             st.markdown(f"{'✅' if has_aws else '❌'} AWS Credentials")
@@ -7341,7 +7413,7 @@ def render_sidebar():
                 if has_aws and not st.session_state.get('aws_connected'):
                     with st.spinner("Connecting to AWS..."):
                         # Get session token if present (for temporary credentials)
-                        aws_session_token = aws_secrets.get('session_token') or aws_secrets.get('aws_session_token')
+                        aws_session_token = aws_creds.get('session_token') or aws_secrets.get('session_token') or aws_secrets.get('aws_session_token')
                         clients = get_aws_clients(
                             aws_access_key,
                             aws_secret_key,
@@ -7358,7 +7430,7 @@ def render_sidebar():
                 
                 # Auto-connect Claude
                 if has_claude and not st.session_state.get('claude_connected'):
-                    client = get_claude_client(st.secrets["anthropic"]["api_key"])
+                    client = get_claude_client(claude_key)
                     if client:
                         st.session_state.claude_client = client
                         st.session_state.claude_connected = True
@@ -10690,7 +10762,7 @@ def main():
         
         with finops_tabs[2]:
             # Budget Tracking - Use live data module if available
-            if FINOPS_LIVE_AVAILABLE and not st.session_state.get('demo_mode', False):
+            if FINOPS_LIVE_AVAILABLE and st.session_state.get('aws_connected') and not st.session_state.get('demo_mode', False):
                 render_real_budget_tracking()
             else:
                 # Fallback to hardcoded data
@@ -10837,7 +10909,7 @@ def main():
         
         with finops_tabs[3]:
             # Optimization Recommendations - Use live data module if available
-            if FINOPS_LIVE_AVAILABLE and not st.session_state.get('demo_mode', False):
+            if FINOPS_LIVE_AVAILABLE and st.session_state.get('aws_connected') and not st.session_state.get('demo_mode', False):
                 render_real_optimization_recommendations()
             else:
                 # Fallback to hardcoded data

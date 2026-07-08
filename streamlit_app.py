@@ -1,6 +1,7 @@
 """
 ☁️ Cloud Compliance Canvas | Enterprise AWS Governance Platform
 AI-Powered Multi-Cloud Compliance, FinOps, and Security Orchestration
+Build: 2026-07-08 03:43 UTC — built-in credential login (Azure SSO removed)
 
 🎯 Enterprise Features:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

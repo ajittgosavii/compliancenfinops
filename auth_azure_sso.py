@@ -756,7 +756,7 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
         with st.form("cc_login_form"):
             email = st.text_input("Email", placeholder="admin@compliance.local")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
-            submitted = st.form_submit_button("🔓 Sign In", use_container_width=True)
+            submitted = st.form_submit_button("🔓 Sign In", width="stretch")
 
             if submitted:
                 key = (email or "").strip().lower()
@@ -823,7 +823,7 @@ def render_user_menu():
         """, unsafe_allow_html=True)
         
         # Logout button
-        if st.button("🚪 Logout", key="logout_btn", use_container_width=True):
+        if st.button("🚪 Logout", key="logout_btn", width="stretch"):
             SessionManager.logout()
             st.rerun()
 

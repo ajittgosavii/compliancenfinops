@@ -1144,14 +1144,14 @@ def render_policy_card(policy_id: str, policy: Dict, workflow: Dict):
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👁️ View", key=f"view_{policy_id}", use_container_width=True):
+        if st.button("👁️ View", key=f"view_{policy_id}", width="stretch"):
             st.session_state['viewing_policy'] = policy
     with col2:
         if is_selected:
-            if st.button("✓ Selected", key=f"sel_{policy_id}", use_container_width=True, disabled=True):
+            if st.button("✓ Selected", key=f"sel_{policy_id}", width="stretch", disabled=True):
                 pass
         else:
-            if st.button("➕ Select", key=f"add_{policy_id}", use_container_width=True):
+            if st.button("➕ Select", key=f"add_{policy_id}", width="stretch"):
                 workflow['selected_policies'].append({**policy, 'id': policy_id})
                 st.rerun()
 
@@ -1308,7 +1308,7 @@ def render_compliance_scan_tab():
                     key="scan_depth"
                 )
             
-            if st.button("🚀 Start Comprehensive Scan", type="primary", use_container_width=True):
+            if st.button("🚀 Start Comprehensive Scan", type="primary", width="stretch"):
                 run_compliance_scan(workflow, scan_types, scan_depth)
     
     # ==================== RESULTS ====================
@@ -1342,7 +1342,7 @@ def render_compliance_scan_tab():
                         title="Violations by Type",
                         color_discrete_sequence=px.colors.qualitative.Set2
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
             
             with col2:
                 severity_data = {k: len(v) for k, v in violations['by_severity'].items() if v}
@@ -1357,7 +1357,7 @@ def render_compliance_scan_tab():
                             'MEDIUM': '#ca8a04', 'LOW': '#2563eb'
                         }
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
             
             # Violations table
             st.markdown("#### 📋 Violation Details")
@@ -1375,7 +1375,7 @@ def render_compliance_scan_tab():
                     }
                     for v in all_violations[:50]
                 ])
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(df, width="stretch")
 
 
 def run_compliance_scan(workflow: Dict, scan_types: List[str], scan_depth: str):
@@ -1653,7 +1653,7 @@ def render_triage_tab():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        if st.button("🧠 Run AI Analysis", type="primary", use_container_width=True):
+        if st.button("🧠 Run AI Analysis", type="primary", width="stretch"):
             with st.spinner("🤖 Claude AI is analyzing violations..."):
                 ai_engine = st.session_state.guardrails_ai
                 analysis = ai_engine.analyze_violations(violations)
@@ -1877,7 +1877,7 @@ def render_deploy_tab():
             
             st.markdown("---")
             
-            if st.button("🚀 Deploy SCPs", type="primary", use_container_width=True, disabled=not policies_to_deploy or not target_ous):
+            if st.button("🚀 Deploy SCPs", type="primary", width="stretch", disabled=not policies_to_deploy or not target_ous):
                 deploy_scp_policies(workflow, policies_to_deploy, target_ous, deploy_mode, notifications)
     
     # ==================== OPA DEPLOYMENT ====================
@@ -1916,7 +1916,7 @@ def render_deploy_tab():
                         key="opa_clusters"
                     )
             
-            if st.button("🚀 Deploy OPA Policies", type="primary", use_container_width=True, disabled=not opa_policies):
+            if st.button("🚀 Deploy OPA Policies", type="primary", width="stretch", disabled=not opa_policies):
                 deploy_opa_policies(workflow, opa_policies, targets)
     
     # ==================== KICS INTEGRATION ====================
@@ -2195,7 +2195,7 @@ def render_monitor_tab():
                 range_color=[0, 100]
             )
             fig.update_layout(yaxis_range=[0, 100])
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             st.markdown("##### Violations by Category")
@@ -2211,7 +2211,7 @@ def render_monitor_tab():
                     names=list(category_data.keys()),
                     hole=0.4
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             else:
                 st.info("No violation data to display")
         
@@ -2264,7 +2264,7 @@ def render_monitor_tab():
         fig.update_yaxes(title_text="Compliance %", secondary_y=False)
         fig.update_yaxes(title_text="Violations", secondary_y=True)
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     # ==================== REPORTS ====================
     with monitor_tabs[2]:
@@ -2299,7 +2299,7 @@ def render_monitor_tab():
                 key="report_frameworks"
             )
         
-        if st.button("📄 Generate Report", type="primary", use_container_width=True):
+        if st.button("📄 Generate Report", type="primary", width="stretch"):
             with st.spinner("Generating report..."):
                 time.sleep(2)
                 

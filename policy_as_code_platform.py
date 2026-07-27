@@ -1221,7 +1221,7 @@ def render_policy_catalog_tab():
                     is_test = '_test' in filename
                     icon = "🧪" if is_test else "📜"
                     
-                    if st.button(f"{icon} {filename}", key=f"select_{full_path}", use_container_width=True):
+                    if st.button(f"{icon} {filename}", key=f"select_{full_path}", width="stretch"):
                         pac['current_policy'] = full_path
                         pac['editor_content'] = policies[full_path]
                         st.rerun()
@@ -1296,7 +1296,7 @@ def render_author_edit_tab():
             )
             
             if selected_file != '(New Policy)':
-                if st.button("📥 Load", use_container_width=True):
+                if st.button("📥 Load", width="stretch"):
                     pac['editor_content'] = pac['policies'].get(selected_file, '')
                     st.rerun()
             
@@ -1317,13 +1317,13 @@ def render_author_edit_tab():
         col_a1, col_a2, col_a3 = st.columns(3)
         
         with col_a1:
-            if st.button("💾 Save Policy", type="primary", use_container_width=True):
+            if st.button("💾 Save Policy", type="primary", width="stretch"):
                 filename = new_filename if selected_file == '(New Policy)' else selected_file
                 pac['policies'][filename] = editor_content
                 st.success(f"✅ Saved: {filename}")
         
         with col_a2:
-            if st.button("✅ Validate Syntax", use_container_width=True):
+            if st.button("✅ Validate Syntax", width="stretch"):
                 # Basic validation
                 if 'package' in editor_content and ('deny' in editor_content or 'allow' in editor_content):
                     st.success("✅ Syntax looks valid!")
@@ -1331,7 +1331,7 @@ def render_author_edit_tab():
                     st.warning("⚠️ Policy should have 'package' and 'deny'/'allow' rules")
         
         with col_a3:
-            if st.button("📋 Format Code", use_container_width=True):
+            if st.button("📋 Format Code", width="stretch"):
                 st.info("💡 Run `opa fmt` locally to format Rego code")
     
     # ==================== AI GENERATOR ====================
@@ -1592,7 +1592,7 @@ def render_test_validate_tab():
             })
         
         df = pd.DataFrame(coverage_data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
         
         # Summary
         tested = len([c for c in coverage_data if c['Has Tests'] == '✅'])
@@ -1639,7 +1639,7 @@ def render_deploy_enforce_tab():
         
         if rules:
             df = pd.DataFrame(rules)
-            st.dataframe(df[['name', 'source_identifier', 'state']], use_container_width=True, hide_index=True)
+            st.dataframe(df[['name', 'source_identifier', 'state']], width="stretch", hide_index=True)
         
         st.markdown("---")
         
@@ -1753,7 +1753,7 @@ kubectl apply -f constraint.yaml
             deployments = pac['deployments']
         
         df = pd.DataFrame(deployments)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
 
 
 # ============================================================================
@@ -1800,7 +1800,7 @@ def render_monitor_tab():
                 color_discrete_sequence=['#10b981', '#ef4444'],
                 title="Resource Compliance"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             # Rules by source
@@ -1815,7 +1815,7 @@ def render_monitor_tab():
                     y=list(rule_sources.values()),
                     title="Rules by Source"
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
     
     # ==================== VIOLATIONS ====================
     with monitor_tabs[1]:
@@ -1837,7 +1837,7 @@ def render_monitor_tab():
             
             if non_compliant:
                 df = pd.DataFrame(non_compliant)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width="stretch", hide_index=True)
             else:
                 st.success("✅ All resources compliant!")
     

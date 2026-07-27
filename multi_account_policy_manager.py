@@ -556,7 +556,7 @@ def render_organization_overview():
         st.markdown("#### 📋 Accounts")
         if accounts:
             df = pd.DataFrame(accounts)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
     
     with col2:
         st.markdown("#### 📁 Organizational Units")
@@ -734,7 +734,7 @@ def render_compliance_dashboard():
                 title=''
             )
             fig.update_layout(height=300, showlegend=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("No rule compliance data available")
     
@@ -762,7 +762,7 @@ def render_compliance_dashboard():
         
         if account_data:
             df_accounts = pd.DataFrame(account_data)
-            st.dataframe(df_accounts, use_container_width=True, hide_index=True)
+            st.dataframe(df_accounts, width="stretch", hide_index=True)
         else:
             st.info("No account compliance data available")
     
@@ -781,7 +781,7 @@ def render_compliance_dashboard():
             
             if resources:
                 df_resources = pd.DataFrame(resources)
-                st.dataframe(df_resources, use_container_width=True, hide_index=True)
+                st.dataframe(df_resources, width="stretch", hide_index=True)
             else:
                 st.success("No non-compliant resources found")
     else:
@@ -806,7 +806,7 @@ def render_deployment_history():
         df = pd.DataFrame(history)
         df['ous'] = df['ous'].apply(lambda x: ', '.join(x) if isinstance(x, list) else x)
         df['regions'] = df['regions'].apply(lambda x: ', '.join(x) if isinstance(x, list) else x)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width="stretch", hide_index=True)
     else:
         st.info("No deployment history yet. Deploy Config Rules to see history.")
 

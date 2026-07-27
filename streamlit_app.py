@@ -3533,8 +3533,8 @@ def fetch_kics_results() -> Dict[str, Any]:
         'detailed_findings': [],
         'status': 'Ready to scan - Upload IaC templates to analyze'
     }
-    
-    return kics_data
+
+
 # Enhanced Tech Guardrails Rendering Functions
 # Add these to the aws_compliance_platform_futureminds.py file
 
@@ -11149,7 +11149,7 @@ def main():
                                     height=350,
                                     showlegend=True
                                 )
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, width="stretch")
                             
                             with col2:
                                 st.markdown("### Monthly Spend Breakdown")
@@ -11259,7 +11259,7 @@ def main():
                             height=350,
                             showlegend=True
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     
                     with col2:
                         st.markdown("### Monthly Spend Breakdown")
@@ -11314,7 +11314,7 @@ def main():
                         yaxis_range=[70, 100],
                         hovermode='x unified'
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
     
         with finops_tab2:
                 st.subheader("🤖 AI/ML Workload Cost Analysis")
@@ -11369,7 +11369,7 @@ def main():
                                         xaxis_title="Service",
                                         yaxis_title="Cost ($)"
                                     )
-                                    st.plotly_chart(fig, use_container_width=True)
+                                    st.plotly_chart(fig, width="stretch")
                                 else:
                                     st.info("No AI/ML service usage in the last 30 days")
                             
@@ -11461,7 +11461,7 @@ def main():
                             hovermode='x unified'
                         )
             
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
         
                     with col2:
                         st.markdown("### Cost Drivers")
@@ -11498,7 +11498,7 @@ def main():
                         'Jobs': [145, 234, 345, 456]
                     })
             
-                    st.dataframe(training_data, use_container_width=True, hide_index=True)
+                    st.dataframe(training_data, width="stretch", hide_index=True)
         
                     with col2:
                         st.markdown("#### Inference Endpoints")
@@ -12217,7 +12217,7 @@ def main():
                             fig.add_trace(go.Scatter(x=df['date'], y=df['upper'], name='Upper Bound', line=dict(color='#FF9900', dash='dash'), opacity=0.5))
                             fig.add_trace(go.Scatter(x=df['date'], y=df['lower'], name='Lower Bound', line=dict(color='#FF9900', dash='dash'), opacity=0.5, fill='tonexty'))
                             fig.update_layout(height=350, xaxis_title="Date", yaxis_title="Cost ($)")
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
                     else:
                         st.info("📊 No budget data available. Configure AWS Budgets to see tracking.")
                         is_demo = True
@@ -12281,7 +12281,7 @@ def main():
                             legend=dict(orientation='h', yanchor='bottom', y=1.02)
                         )
             
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
         
                     with col2:
                         st.markdown("### 🚨 Budget Alerts")
@@ -12475,7 +12475,7 @@ def main():
                                 df = pd.DataFrame(unattached_ebs)
                                 if not df.empty:
                                     df['monthly_cost'] = df['monthly_cost'].apply(lambda x: f"${x:.2f}")
-                                    st.dataframe(df, use_container_width=True, hide_index=True)
+                                    st.dataframe(df, width="stretch", hide_index=True)
                             else:
                                 st.success("✅ No unattached EBS volumes found!")
                         
@@ -12502,7 +12502,7 @@ def main():
                                 df = pd.DataFrame(old_snapshots[:20])
                                 if not df.empty:
                                     df['monthly_cost'] = df['monthly_cost'].apply(lambda x: f"${x:.2f}")
-                                    st.dataframe(df, use_container_width=True, hide_index=True)
+                                    st.dataframe(df, width="stretch", hide_index=True)
                                 
                                 if len(old_snapshots) > 20:
                                     st.info(f"Showing 20 of {len(old_snapshots)} old snapshots")
@@ -12786,7 +12786,7 @@ def main():
                                 yaxis_title="Cost ($)",
                                 xaxis_tickangle=-45
                             )
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
                         
                         with col2:
                             st.markdown("### 📋 Account Breakdown")
@@ -12832,7 +12832,7 @@ def main():
                                     hole=0.4
                                 )])
                                 fig.update_layout(height=350)
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, width="stretch")
                     else:
                         st.info("📊 No account cost data available")
                         is_demo = True
@@ -12878,7 +12878,7 @@ def main():
             
                         fig.update_layout(height=400)
             
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
         
                     with col2:
                         st.markdown("### 📋 Allocation Summary")
@@ -13296,7 +13296,7 @@ def main():
                                     xaxis_title="Region",
                                     yaxis_title="CO2e (kg)"
                                 )
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, width="stretch")
                         
                         with col2:
                             st.markdown("### 🌍 Region Breakdown")
@@ -13586,7 +13586,7 @@ def main():
                                 jobs_df['status'] = jobs_df['last_run_state'].apply(status_icon)
                                 display_df = jobs_df[['status', 'name', 'type', 'last_run_time', 'success_rate']].copy()
                                 display_df.columns = ['', 'Job Name', 'Type', 'Last Run', 'Success Rate']
-                                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                                st.dataframe(display_df, width="stretch", hide_index=True)
                         else:
                             st.info("📊 No Glue jobs found in this account/region")
                     
@@ -13622,7 +13622,7 @@ def main():
                                 machines_df['status'] = machines_df['last_execution'].apply(exec_icon)
                                 display_df = machines_df[['status', 'name', 'type', 'last_exec_time', 'success_rate']].copy()
                                 display_df.columns = ['', 'State Machine', 'Type', 'Last Execution', 'Success Rate']
-                                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                                st.dataframe(display_df, width="stretch", hide_index=True)
                         else:
                             st.info("📊 No Step Functions found in this account/region")
                     
@@ -13649,7 +13649,7 @@ def main():
                                 rules_df['status'] = rules_df['state'].apply(state_icon)
                                 display_df = rules_df[['status', 'name', 'schedule', 'description']].copy()
                                 display_df.columns = ['', 'Rule Name', 'Schedule/Trigger', 'Description']
-                                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                                st.dataframe(display_df, width="stretch", hide_index=True)
                         else:
                             st.info("📊 No EventBridge rules found in this account/region")
                     
@@ -13670,7 +13670,7 @@ def main():
                             if not funcs_df.empty:
                                 display_df = funcs_df[['name', 'runtime', 'memory', 'timeout', 'code_size_mb']].copy()
                                 display_df.columns = ['Function Name', 'Runtime', 'Memory (MB)', 'Timeout (s)', 'Code Size (MB)']
-                                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                                st.dataframe(display_df, width="stretch", hide_index=True)
                         else:
                             st.info("📊 No Lambda functions found in this account/region")
                     
@@ -13738,7 +13738,7 @@ def main():
                             {'': '❌', 'Job Name': 'chargeback-calculator', 'Type': 'glueetl', 'Last Run': '2024-12-24 23:00', 'Success Rate': '87%'},
                             {'': '✅', 'Job Name': 'anomaly-data-prep', 'Type': 'gluestreaming', 'Last Run': '2024-12-25 08:15', 'Success Rate': '99%'},
                         ])
-                        st.dataframe(demo_glue_jobs, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_glue_jobs, width="stretch", hide_index=True)
                     
                     with demo_tab2:
                         st.markdown("### Step Functions State Machines")
@@ -13770,7 +13770,7 @@ def main():
                             {'': '✅', 'State Machine': 'BudgetBreachRemediation', 'Type': 'STANDARD', 'Last Execution': '2024-12-23 15:30', 'Success Rate': '95%'},
                             {'': '🔄', 'State Machine': 'CostAllocationTagging', 'Type': 'EXPRESS', 'Last Execution': '2024-12-25 08:10', 'Success Rate': '98%'},
                         ])
-                        st.dataframe(demo_sfn, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_sfn, width="stretch", hide_index=True)
                     
                     with demo_tab3:
                         st.markdown("### EventBridge Rules (Scheduled Automation)")
@@ -13802,7 +13802,7 @@ def main():
                             {'': '⏸️', 'Rule Name': 'ri-expiration-warning', 'Schedule/Trigger': 'rate(1 day)', 'Description': 'Check RI expiration (disabled)'},
                             {'': '✅', 'Rule Name': 'idle-resource-scan', 'Schedule/Trigger': 'rate(6 hours)', 'Description': 'Scan for idle resources'},
                         ])
-                        st.dataframe(demo_rules, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_rules, width="stretch", hide_index=True)
                     
                     with demo_tab4:
                         st.markdown("### Lambda Functions")
@@ -13832,7 +13832,7 @@ def main():
                             {'Function Name': 'cur-parser', 'Runtime': 'python3.11', 'Memory (MB)': 2048, 'Timeout (s)': 900, 'Code Size (MB)': 45.0},
                             {'Function Name': 'servicenow-integrator', 'Runtime': 'python3.11', 'Memory (MB)': 256, 'Timeout (s)': 60, 'Code Size (MB)': 3.1},
                         ])
-                        st.dataframe(demo_lambda, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_lambda, width="stretch", hide_index=True)
 
                     # ==================== FINOPS TAB 11: OPTIMIZATION ENGINE ====================
 
@@ -14242,7 +14242,7 @@ Provide a helpful, specific answer based on the data available."""
                             {'Type': 'EC2 Instance SP', 'Commitment': '$25/hr', 'Term': '3 year', 'Est. Savings': '$8,200/mo'},
                             {'Type': 'Reserved Instance', 'Commitment': 'm5.xlarge x 10', 'Term': '1 year', 'Est. Savings': '$3,800/mo'},
                         ])
-                        st.dataframe(demo_sp, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_sp, width="stretch", hide_index=True)
                     
                     with demo_tabs[1]:
                         st.markdown("### 🔧 Compute Optimizer")
@@ -14261,7 +14261,7 @@ Provide a helpful, specific answer based on the data available."""
                             {'': '⬆️', 'Resource': 'i-0ghi789 (t3.micro)', 'Finding': 'Under-provisioned', 'Action': 'Upgrade to t3.small'},
                             {'': '✅', 'Resource': 'i-0jkl012 (r5.xlarge)', 'Finding': 'Optimized', 'Action': 'No change needed'},
                         ])
-                        st.dataframe(demo_co, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_co, width="stretch", hide_index=True)
                     
                     with demo_tabs[2]:
                         st.markdown("### ✅ Trusted Advisor")
@@ -14281,7 +14281,7 @@ Provide a helpful, specific answer based on the data available."""
                             {'': '✅', 'Check': 'Unassociated Elastic IPs', 'Flagged': 0, 'Est. Savings': '$0'},
                             {'': '⚠️', 'Check': 'Underutilized EBS Volumes', 'Flagged': 12, 'Est. Savings': '$180/mo'},
                         ])
-                        st.dataframe(demo_ta, use_container_width=True, hide_index=True)
+                        st.dataframe(demo_ta, width="stretch", hide_index=True)
                     
                     with demo_tabs[3]:
                         st.markdown("### 🧠 Claude AI Analysis")

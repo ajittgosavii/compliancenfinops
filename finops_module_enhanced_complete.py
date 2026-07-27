@@ -52,8 +52,12 @@ def get_anthropic_client():
             pass
     
     # 2. Try Streamlit secrets - direct format
-    if not api_key and hasattr(st, 'secrets') and 'ANTHROPIC_API_KEY' in st.secrets:
-        api_key = st.secrets['ANTHROPIC_API_KEY']
+    if not api_key:
+        try:
+            if 'ANTHROPIC_API_KEY' in st.secrets:
+                api_key = st.secrets['ANTHROPIC_API_KEY']
+        except Exception:
+            pass
     
     # 3. Try environment variable
     if not api_key:

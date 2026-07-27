@@ -378,7 +378,7 @@ def render_real_budget_tracking():
         
         fig.update_layout(height=350, yaxis_title='Cost ($)',
                          legend=dict(orientation='h', yanchor='bottom', y=1.02))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     # Service breakdown
     if costs and costs.get('service_costs'):
@@ -396,7 +396,7 @@ def render_real_budget_tracking():
             df = pd.DataFrame(service_data)
             fig = px.pie(df, values='Cost', names='Service', hole=0.4)
             fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             for service, cost in sorted_services[:7]:

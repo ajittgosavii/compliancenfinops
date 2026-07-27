@@ -865,12 +865,19 @@ def render_unified_remediation_dashboard():
     
     dashboard = st.session_state.remediation_dashboard
     
-    # Check if AWS credentials are available
-    if st.secrets.get("AWS_ACCESS_KEY_ID"):
+    # Check if AWS credentials are available. With no secrets.toml present at
+    # all, st.secrets raises on access instead of returning the default.
+    try:
+        aws_access_key = st.secrets.get("AWS_ACCESS_KEY_ID")
+        aws_secret_key = st.secrets.get("AWS_SECRET_ACCESS_KEY")
+    except Exception:
+        aws_access_key = aws_secret_key = None
+
+    if aws_access_key and aws_secret_key:
         # Initialize connectors
         dashboard.initialize_connectors(
-            aws_access_key=st.secrets["AWS_ACCESS_KEY_ID"],
-            aws_secret_key=st.secrets["AWS_SECRET_ACCESS_KEY"],
+            aws_access_key=aws_access_key,
+            aws_secret_key=aws_secret_key,
             eks_cluster_name=st.session_state.get('eks_cluster_name')
         )
     

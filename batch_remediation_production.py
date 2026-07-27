@@ -852,7 +852,7 @@ def remediate_kms_threat(threat: Dict, options: Dict) -> List[Dict]:
                 })
         
         # Enable automatic key rotation
-        if options.get('enable_rotation', True):
+        if options.get('kms_enable_rotation', True):
             try:
                 kms.enable_key_rotation(KeyId=key_id)
                 
@@ -870,10 +870,9 @@ def remediate_kms_threat(threat: Dict, options: Dict) -> List[Dict]:
                 })
         
         # Restrict key policy (remove overly broad access)
-        if options.get('restrict_policy', True):
+        if options.get('kms_restrict_policy', True):
             try:
                 # Get current account ID
-                import boto3
                 sts = boto3.client('sts')
                 account_id = sts.get_caller_identity()['Account']
                 
@@ -934,7 +933,7 @@ def remediate_secrets_threat(threat: Dict, options: Dict) -> List[Dict]:
     
     if secret_id:
         # Enable automatic rotation
-        if options.get('enable_rotation', True):
+        if options.get('secret_enable_rotation', True):
             try:
                 # Note: Requires Lambda function for rotation
                 # This is a placeholder - actual implementation needs rotation Lambda
@@ -959,7 +958,6 @@ def remediate_secrets_threat(threat: Dict, options: Dict) -> List[Dict]:
         # Update resource policy (restrict access)
         if options.get('restrict_access', True):
             try:
-                import boto3
                 sts = boto3.client('sts')
                 account_id = sts.get_caller_identity()['Account']
                 
@@ -1066,9 +1064,8 @@ def remediate_messaging_threat(threat: Dict, options: Dict) -> List[Dict]:
         # SNS Topic remediation
         topic_arn = threat.get('resource', {}).get('topic_arn')
         
-        if topic_arn and options.get('restrict_policy', True):
+        if topic_arn and options.get('messaging_restrict_policy', True):
             try:
-                import boto3
                 sts = boto3.client('sts')
                 account_id = sts.get_caller_identity()['Account']
                 
@@ -1107,7 +1104,7 @@ def remediate_messaging_threat(threat: Dict, options: Dict) -> List[Dict]:
         
         if queue_url:
             # Enable encryption
-            if options.get('enable_encryption', True):
+            if options.get('messaging_enable_encryption', True):
                 try:
                     sqs.set_queue_attributes(
                         QueueUrl=queue_url,
@@ -1374,18 +1371,19 @@ def render_batch_remediation_ui():
         'enable_logging': enable_logging,
         'enable_validation': enable_validation,
         'create_alarm': create_alarm,
-        # KMS
+        # KMS (namespaced: a flat 'enable_rotation'/'restrict_policy' collided
+        # with the Secrets Manager and messaging toggles below)
         'cancel_deletion': cancel_deletion,
-        'enable_rotation': enable_rotation,
-        'restrict_policy': restrict_policy,
+        'kms_enable_rotation': enable_rotation,
+        'kms_restrict_policy': restrict_policy,
         # Secrets Manager
-        'enable_rotation': enable_secret_rotation,
+        'secret_enable_rotation': enable_secret_rotation,
         'restrict_access': restrict_access,
         # VPC
         'enable_flow_logs': enable_flow_logs,
         # Messaging
-        'restrict_policy': messaging_restrict,
-        'enable_encryption': messaging_encrypt,
+        'messaging_restrict_policy': messaging_restrict,
+        'messaging_enable_encryption': messaging_encrypt,
         # General
         'notify': notify_team
     }

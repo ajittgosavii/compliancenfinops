@@ -211,7 +211,7 @@ def render_live_finops_dashboard(cost_data):
                 height=350
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("No daily cost data available")
     
@@ -304,7 +304,7 @@ def render_live_finops_dashboard(cost_data):
             legend=dict(orientation="h", yanchor="bottom", y=-0.2)
         )
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 def render_predictive_finops_scene():
     """
@@ -469,7 +469,6 @@ def render_predictive_finops_scene():
                     Average Utilization: 28% (significantly underutilized)
                 </span>
             </div>
-            
             <h4 style='margin: 15px 0 10px 0; color: #232F3E;'>📊 Impact Analysis</h4>
             <ul style='color: #666; font-size: 14px; margin: 0; padding-left: 20px;'>
                 <li><strong>Over-provisioning:</strong> 72% of instances idle during off-peak</li>
@@ -608,7 +607,6 @@ def render_predictive_finops_scene():
         box-shadow: 0 4px 8px rgba(0,200,81,0.2);
     '>
         <h3 style='margin: 0 0 20px 0; color: #232F3E;'>🎯 Recommended Action</h3>
-        
         <div style='
             background: white;
             padding: 20px;
@@ -631,7 +629,6 @@ def render_predictive_finops_scene():
                 </div>
             </div>
         </div>
-        
         <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>
             <div style='background: white; padding: 15px; border-radius: 8px;'>
                 <strong style='color: #232F3E;'>✅ Benefits</strong>

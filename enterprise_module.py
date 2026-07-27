@@ -6,6 +6,7 @@ Clean, working version with proper navigation
 import streamlit as st
 import pandas as pd
 import random
+import re
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -1909,25 +1910,30 @@ def render_enhanced_cfo_dashboard():
             dormant_savings = int(dormant_count * data['cost_per_account']/1000)
             recommendations.append(f"4. Close {dormant_count} dormant accounts → ~${dormant_savings}K/month")
         
-        recommendations_text = "\n        ".join(recommendations)
-        
+        # Strip the hardcoded "N. " prefixes so <ol> numbers stay contiguous even
+        # when the conditional recommendations are skipped.
+        recommendations_html = "".join(
+            f"<li>{re.sub(r'^[0-9]+[.] ', '', rec)}</li>" for rec in recommendations
+        )
+
         st.markdown(f"""
         <div style='background: #f8f9fa; padding: 1.5rem; border-radius: 10px; border-left: 4px solid #667eea;'>
             <h4 style='margin-top: 0; color: #333;'>Financial Health: <span style='color: #4ECDC4;'>Strong</span></h4>
-            
-            **Key Highlights:**
-            - Monthly spend: ${data['monthly_spend']/1000000:.1f}M (within budget at {data['budget_utilization']:.1f}% utilization)
-            - YTD savings: ${data['savings_realized']/1000:.0f}K ({savings_pct_summary:.1f}% of spend)
-            - Optimization potential: ${data['savings_potential']/1000:.0f}K/month identified
-            - ROI on cloud investments: {data['roi']}%
-            
-            **Risk Factors:**
-            - ${data['security_findings']['cost_at_risk']/1000:.0f}K at risk from {data['security_findings']['critical']} critical security findings
-            - ${data['compliance']['potential_fines']/1000:.0f}K potential compliance fines
-            - {len(data['anomalies'])} cost anomalies detected requiring attention
-            
-            **Recommendations:**
-            {recommendations_text}
+            <strong style='color: #333;'>Key Highlights:</strong>
+            <ul style='color: #555; margin: 0.5rem 0 1rem 0;'>
+                <li>Monthly spend: ${data['monthly_spend']/1000000:.1f}M (within budget at {data['budget_utilization']:.1f}% utilization)</li>
+                <li>YTD savings: ${data['savings_realized']/1000:.0f}K ({savings_pct_summary:.1f}% of spend)</li>
+                <li>Optimization potential: ${data['savings_potential']/1000:.0f}K/month identified</li>
+                <li>ROI on cloud investments: {data['roi']}%</li>
+            </ul>
+            <strong style='color: #333;'>Risk Factors:</strong>
+            <ul style='color: #555; margin: 0.5rem 0 1rem 0;'>
+                <li>${data['security_findings']['cost_at_risk']/1000:.0f}K at risk from {data['security_findings']['critical']} critical security findings</li>
+                <li>${data['compliance']['potential_fines']/1000:.0f}K potential compliance fines</li>
+                <li>{len(data['anomalies'])} cost anomalies detected requiring attention</li>
+            </ul>
+            <strong style='color: #333;'>Recommendations:</strong>
+            <ol style='color: #555; margin: 0.5rem 0 0 0;'>{recommendations_html}</ol>
         </div>
         """, unsafe_allow_html=True)
         

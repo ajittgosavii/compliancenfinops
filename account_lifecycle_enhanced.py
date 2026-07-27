@@ -1422,7 +1422,7 @@ def render_create_account_request_form(accounts: list, is_live: bool):
         
         urgency = st.select_slider("Urgency", options=["Low", "Normal", "High", "Critical"], value="Normal")
         
-        submit_btn = st.form_submit_button("📤 Submit Request for Approval", type="primary", use_container_width=True)
+        submit_btn = st.form_submit_button("📤 Submit Request for Approval", type="primary", width="stretch")
     
     if submit_btn:
         if not account_name or not account_email or not business_justification:
@@ -1536,7 +1536,7 @@ def render_template_request_form(accounts: list, is_live: bool):
             
             business_justification = st.text_area("Business Justification *", height=100)
             
-            submit_btn = st.form_submit_button("📤 Submit Template Request", type="primary", use_container_width=True)
+            submit_btn = st.form_submit_button("📤 Submit Template Request", type="primary", width="stretch")
         
         if submit_btn:
             if not account_email or not business_justification:
@@ -1576,7 +1576,7 @@ def render_batch_request_form(accounts: list, is_live: bool):
         if uploaded_file:
             import pandas as pd
             df = pd.read_csv(uploaded_file)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width="stretch")
             batch_accounts = df.to_dict('records')
         else:
             batch_accounts = []
@@ -1607,7 +1607,7 @@ def render_batch_request_form(accounts: list, is_live: bool):
         business_justification = st.text_area("Business Justification *", height=100)
         urgency = st.select_slider("Urgency", options=["Low", "Normal", "High", "Critical"], value="Normal")
         
-        submit_btn = st.form_submit_button("📤 Submit Batch Request", type="primary", use_container_width=True)
+        submit_btn = st.form_submit_button("📤 Submit Batch Request", type="primary", width="stretch")
     
     if submit_btn:
         if not batch_accounts or not business_justification:
@@ -1652,7 +1652,7 @@ def render_clone_request_form(accounts: list, is_live: bool):
         business_justification = st.text_area("Business Justification *", height=100)
         urgency = st.select_slider("Urgency", options=["Low", "Normal", "High", "Critical"], value="Normal")
         
-        submit_btn = st.form_submit_button("📤 Submit Clone Request", type="primary", use_container_width=True)
+        submit_btn = st.form_submit_button("📤 Submit Clone Request", type="primary", width="stretch")
     
     if submit_btn:
         if not new_name or not new_email or not business_justification:
@@ -1710,7 +1710,7 @@ def render_modify_request_form(accounts: list, is_live: bool):
         business_justification = st.text_area("Business Justification *", height=100)
         urgency = st.select_slider("Urgency", options=["Low", "Normal", "High", "Critical"], value="Normal")
         
-        submit_btn = st.form_submit_button("📤 Submit Modification Request", type="primary", use_container_width=True)
+        submit_btn = st.form_submit_button("📤 Submit Modification Request", type="primary", width="stretch")
     
     if submit_btn:
         if not detailed_changes or not business_justification:
@@ -1766,7 +1766,7 @@ def render_offboard_request_form(accounts: list, is_live: bool):
         
         confirm = st.checkbox("⚠️ I understand this action cannot be undone after the retention period")
         
-        submit_btn = st.form_submit_button("📤 Submit Offboarding Request", type="primary", use_container_width=True)
+        submit_btn = st.form_submit_button("📤 Submit Offboarding Request", type="primary", width="stretch")
     
     if submit_btn:
         if not confirm:
@@ -1942,7 +1942,7 @@ def render_request_review(request: dict, is_live: bool):
             decision = st.radio("Decision", ["✅ Approve", "🔄 Request Changes", "❌ Reject"], horizontal=True)
             comments = st.text_area("Comments (required for Reject/Changes)", placeholder="Provide feedback...")
             
-            submit_btn = st.form_submit_button("Submit Decision", type="primary", use_container_width=True)
+            submit_btn = st.form_submit_button("Submit Decision", type="primary", width="stretch")
         else:
             st.success("✅ All approvals complete!")
             submit_btn = False
@@ -2336,7 +2336,6 @@ def render_portfolio_dashboard():
             
             if ce_client:
                 # Try direct Cost Explorer API call
-                from datetime import datetime, timedelta
                 end_date = datetime.now()
                 start_date = end_date.replace(day=1)  # First of current month
                 
@@ -2409,7 +2408,7 @@ def render_portfolio_dashboard():
         
         if account_data:
             df = pd.DataFrame(account_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width="stretch", hide_index=True)
         
         # Real quick stats
         col1, col2, col3 = st.columns(3)
@@ -2476,7 +2475,7 @@ def render_portfolio_dashboard():
             })
             fig = px.pie(env_data, values="Count", names="Environment", hole=0.4)
             fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         with col2:
             st.markdown("#### Compliance Distribution")
@@ -2486,7 +2485,7 @@ def render_portfolio_dashboard():
             })
             fig = px.bar(compliance_data, x="Framework", y="Accounts")
             fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         
         st.markdown("---")
         
@@ -2507,7 +2506,7 @@ def render_portfolio_dashboard():
             })
         
         df = pd.DataFrame(account_data)
-        st.dataframe(df, use_container_width=True, hide_index=True, height=400)
+        st.dataframe(df, width="stretch", hide_index=True, height=400)
         
         # Quick stats
         col1, col2, col3 = st.columns(3)
@@ -2677,10 +2676,10 @@ def render_create_account():
         col_act1, col_act2, col_act3 = st.columns([1, 1, 2])
         
         with col_act1:
-            validate_btn = st.form_submit_button("🔍 Validate", type="secondary", use_container_width=True)
+            validate_btn = st.form_submit_button("🔍 Validate", type="secondary", width="stretch")
         
         with col_act2:
-            create_btn = st.form_submit_button("🚀 Create Account", type="primary", use_container_width=True)
+            create_btn = st.form_submit_button("🚀 Create Account", type="primary", width="stretch")
         
         with col_act3:
             st.markdown("")  # Spacer
@@ -3509,9 +3508,9 @@ def render_template_marketplace():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    apply_btn = st.form_submit_button("🚀 Apply Template", type="primary", use_container_width=True)
+                    apply_btn = st.form_submit_button("🚀 Apply Template", type="primary", width="stretch")
                 with col2:
-                    preview_btn = st.form_submit_button("👁️ Preview Only", use_container_width=True)
+                    preview_btn = st.form_submit_button("👁️ Preview Only", width="stretch")
             
             if apply_btn:
                 if target_account == "Create New Account":
@@ -3708,15 +3707,15 @@ Development-App-001,dev-001@company.com,Financial Services,Development,us-east-1
         if uploaded_file:
             df = pd.read_csv(uploaded_file)
             st.success(f"✅ Loaded {len(df)} accounts from CSV")
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width="stretch")
             
             # Use form for buttons
             with st.form(key="batch_csv_form"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    validate_btn = st.form_submit_button("🔍 Validate All", type="secondary", use_container_width=True)
+                    validate_btn = st.form_submit_button("🔍 Validate All", type="secondary", width="stretch")
                 with col2:
-                    provision_btn = st.form_submit_button("🚀 Provision All", type="primary", use_container_width=True)
+                    provision_btn = st.form_submit_button("🚀 Provision All", type="primary", width="stretch")
             
             if validate_btn:
                 with st.spinner("Validating all accounts..."):
@@ -3757,9 +3756,9 @@ Development-App-001,dev-001@company.com,Financial Services,Development,us-east-1
             
             col1, col2 = st.columns(2)
             with col1:
-                generate_btn = st.form_submit_button("🎯 Generate Preview", type="secondary", use_container_width=True)
+                generate_btn = st.form_submit_button("🎯 Generate Preview", type="secondary", width="stretch")
             with col2:
-                provision_btn = st.form_submit_button("🚀 Provision All", type="primary", use_container_width=True)
+                provision_btn = st.form_submit_button("🚀 Provision All", type="primary", width="stretch")
         
         if generate_btn:
             st.success(f"✅ Preview: {count} accounts across {len(regions)} regions")
@@ -3774,7 +3773,7 @@ Development-App-001,dev-001@company.com,Financial Services,Development,us-east-1
                     "Est. Cost": f"${ACCOUNT_TEMPLATES[template_key]['estimated_cost']['average']:,}"
                 })
             
-            st.dataframe(pd.DataFrame(preview_data), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(preview_data), width="stretch", hide_index=True)
         
         if provision_btn:
             st.success(f"✅ Batch provisioning started for {count} accounts")
@@ -3882,9 +3881,9 @@ def render_account_modification():
         
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            analyze_btn = st.form_submit_button("🔍 Analyze Impact", type="secondary", use_container_width=True)
+            analyze_btn = st.form_submit_button("🔍 Analyze Impact", type="secondary", width="stretch")
         with col2:
-            apply_btn = st.form_submit_button("✅ Apply Changes", type="primary", use_container_width=True)
+            apply_btn = st.form_submit_button("✅ Apply Changes", type="primary", width="stretch")
         with col3:
             st.markdown("")
     
@@ -3940,7 +3939,7 @@ def render_account_modification():
     ]
     
     drift_df = pd.DataFrame(drift_items)
-    st.dataframe(drift_df, use_container_width=True, hide_index=True)
+    st.dataframe(drift_df, width="stretch", hide_index=True)
     
     # Info about drift remediation (no button to avoid tab jumping)
     drift_count = len([d for d in drift_items if "Drift" in d["Status"]])
@@ -4011,9 +4010,9 @@ def render_account_cloning():
         
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
-            preview_btn = st.form_submit_button("🔍 Preview", type="secondary", use_container_width=True)
+            preview_btn = st.form_submit_button("🔍 Preview", type="secondary", width="stretch")
         with col2:
-            clone_btn = st.form_submit_button("🚀 Clone Account", type="primary", use_container_width=True)
+            clone_btn = st.form_submit_button("🚀 Clone Account", type="primary", width="stretch")
         with col3:
             st.markdown("")
     
@@ -4141,10 +4140,10 @@ def render_offboarding():
         col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
         
         with col_btn1:
-            analyze_btn = st.form_submit_button("🔍 Analyze Account", type="secondary", use_container_width=True)
+            analyze_btn = st.form_submit_button("🔍 Analyze Account", type="secondary", width="stretch")
         
         with col_btn2:
-            offboard_btn = st.form_submit_button("🔴 Start Offboarding", type="primary", use_container_width=True)
+            offboard_btn = st.form_submit_button("🔴 Start Offboarding", type="primary", width="stretch")
         
         with col_btn3:
             st.markdown("")
@@ -4222,7 +4221,7 @@ def render_offboarding():
             {"Severity": "🟡 Warning", "Issue": "Archive S3 data", "Action": "Move to Glacier or export"},
             {"Severity": "🟢 Info", "Issue": "Document configuration", "Action": "Export CloudFormation/Terraform"},
         ]
-        st.dataframe(pd.DataFrame(issues), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(issues), width="stretch", hide_index=True)
     
     if offboard_btn:
         if not confirm:
@@ -4732,7 +4731,7 @@ def render_approval_workflow():
                                 decision = st.radio("Your Decision", ["Approve", "Request Changes", "Reject"], horizontal=True, key=f"decision_{req_id}")
                                 comments = st.text_area("Comments (optional)", placeholder="Add any comments or reasons...", key=f"comments_{req_id}")
                                 
-                                submit_btn = st.form_submit_button("Submit Decision", type="primary", use_container_width=True)
+                                submit_btn = st.form_submit_button("Submit Decision", type="primary", width="stretch")
                             else:
                                 st.success("✅ All approvals complete!")
                                 submit_btn = False
@@ -4778,7 +4777,7 @@ def render_approval_workflow():
                 })
         
         if my_requests_data:
-            st.dataframe(pd.DataFrame(my_requests_data), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(my_requests_data), width="stretch", hide_index=True)
         else:
             st.info("You haven't submitted any requests yet")
     
@@ -4800,7 +4799,7 @@ def render_approval_workflow():
             })
         
         if demo_history:
-            st.dataframe(pd.DataFrame(demo_history), use_container_width=True, hide_index=True, height=400)
+            st.dataframe(pd.DataFrame(demo_history), width="stretch", hide_index=True, height=400)
         else:
             st.info("No approval history available")
 
@@ -4837,7 +4836,7 @@ def render_ai_assistant():
             key="ai_template"
         )
         
-        generate_btn = st.form_submit_button("✨ Generate AI Recommendations", type="primary", use_container_width=True)
+        generate_btn = st.form_submit_button("✨ Generate AI Recommendations", type="primary", width="stretch")
     
     if generate_btn:
         # Determine input
@@ -4902,7 +4901,7 @@ def render_ai_assistant():
                 rec_name = st.text_input("Account Name", value="AI-Recommended-Account-001", key="ai_rec_name")
                 rec_email = st.text_input("Account Email", placeholder="aws-ai-rec@company.com", key="ai_rec_email")
                 
-                apply_btn = st.form_submit_button("🚀 Create Account with AI Config", type="primary", use_container_width=True)
+                apply_btn = st.form_submit_button("🚀 Create Account with AI Config", type="primary", width="stretch")
             
             if apply_btn:
                 if rec_email:
@@ -4921,7 +4920,9 @@ def render_ai_assistant():
                 - NAT Gateways: 3 (one per AZ for high availability)
                 - Transit Gateway: Enabled (for hub connectivity)
                 """)
-            
+
+            tab3, tab4 = st.tabs(["💰 Cost Analysis", "🔀 Alternative Configurations"])
+
             with tab3:
                 st.markdown("#### 💰 Cost Analysis")
                 
@@ -5003,9 +5004,9 @@ def render_ai_assistant():
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    apply_btn = st.form_submit_button("✅ Create with AI Config", type="primary", use_container_width=True)
+                    apply_btn = st.form_submit_button("✅ Create with AI Config", type="primary", width="stretch")
                 with col2:
-                    save_btn = st.form_submit_button("💾 Save as Template", use_container_width=True)
+                    save_btn = st.form_submit_button("💾 Save as Template", width="stretch")
             
             if apply_btn:
                 if apply_email:
@@ -5051,7 +5052,7 @@ def render_network_designer():
                 check_conflicts = st.checkbox("Check for CIDR conflicts", value=True, key="check_conflicts")
                 auto_calculate = st.checkbox("Auto-calculate subnets", value=True, key="auto_calc")
             
-            calculate_btn = st.form_submit_button("🔍 Calculate & Validate", type="primary", use_container_width=True)
+            calculate_btn = st.form_submit_button("🔍 Calculate & Validate", type="primary", width="stretch")
         
         if calculate_btn:
             st.markdown("---")
@@ -5066,7 +5067,7 @@ def render_network_designer():
                 ]
                 
                 conflict_df = pd.DataFrame(conflicts)
-                st.dataframe(conflict_df, use_container_width=True, hide_index=True)
+                st.dataframe(conflict_df, width="stretch", hide_index=True)
                 
                 if any(c['Overlap'] != "0%" for c in conflicts):
                     st.error("❌ Conflict detected! Consider using 10.100.0.0/16 instead")
@@ -5086,7 +5087,7 @@ def render_network_designer():
                             "Usable IPs": "251"
                         })
                 
-                st.dataframe(pd.DataFrame(subnet_data), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(subnet_data), width="stretch", hide_index=True)
                 st.info(f"**Total Subnets:** {len(subnet_data)}")
     
     with tab2:
@@ -5109,7 +5110,7 @@ def render_network_designer():
                 include_firewall = st.checkbox("Network Firewall", value=False, key="net_firewall")
                 include_flowlogs = st.checkbox("VPC Flow Logs", value=True, key="net_flowlogs")
             
-            generate_btn = st.form_submit_button("📐 Generate Topology", type="primary", use_container_width=True)
+            generate_btn = st.form_submit_button("📐 Generate Topology", type="primary", width="stretch")
         
         if generate_btn:
             st.success("✅ Network topology generated")
@@ -5192,11 +5193,11 @@ def render_dependency_mapping():
         
         with col1:
             st.markdown("**⬆️ Depends On (Upstream)**")
-            st.dataframe(pd.DataFrame(dependencies["upstream"]), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(dependencies["upstream"]), width="stretch", hide_index=True)
         
         with col2:
             st.markdown("**⬇️ Depended Upon By (Downstream)**")
-            st.dataframe(pd.DataFrame(dependencies["downstream"]), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(dependencies["downstream"]), width="stretch", hide_index=True)
         
         # Metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -5230,7 +5231,7 @@ def render_dependency_mapping():
             
             description = st.text_input("Description", placeholder="Describe the dependency...", key="dep_desc")
             
-            add_btn = st.form_submit_button("➕ Add Dependency", type="primary", use_container_width=True)
+            add_btn = st.form_submit_button("➕ Add Dependency", type="primary", width="stretch")
         
         if add_btn:
             st.success(f"✅ Dependency added: {selected_account} → {target_account}")
@@ -5251,7 +5252,7 @@ def render_dependency_mapping():
                 "If Network-Hub is modified"
             ], key="impact_scenario")
             
-            analyze_btn = st.form_submit_button("🔍 Analyze Impact", type="primary", use_container_width=True)
+            analyze_btn = st.form_submit_button("🔍 Analyze Impact", type="primary", width="stretch")
         
         if analyze_btn:
             with st.spinner("Analyzing dependencies..."):

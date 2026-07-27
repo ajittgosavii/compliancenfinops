@@ -754,14 +754,19 @@ html,body,[class*="css"]{font-family:'Inter',sans-serif;}
                     unsafe_allow_html=True)
 
         with st.form("cc_login_form"):
-            email = st.text_input("Email", placeholder="admin@compliance.local")
+            # The placeholder must not look like a filled-in value: using a real
+            # demo address here made an empty field indistinguishable from a
+            # typed one, so submitting only a password read as "bad password".
+            email = st.text_input("Email", placeholder="you@company.com")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
             submitted = st.form_submit_button("🔓 Sign In", width="stretch")
 
             if submitted:
                 key = (email or "").strip().lower()
                 user = users.get(key)
-                if user and password and password == user.get("password"):
+                if not key or not password:
+                    st.error("❌ Please enter both your email and password")
+                elif user and password == user.get("password"):
                     SessionManager.login({
                         "id": key,
                         "email": key,

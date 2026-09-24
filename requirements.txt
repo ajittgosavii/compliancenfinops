@@ -4,7 +4,9 @@ pandas
 plotly
 python-dateutil
 python-dotenv
-anthropic
+# >=1.8 for output_config (structured outputs) + adaptive thinking;
+# <2 so a major-version rebuild cannot silently change the request surface
+anthropic>=1.8,<2
 numpy
 openpyxl
 cryptography

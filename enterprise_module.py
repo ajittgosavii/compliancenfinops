@@ -519,8 +519,9 @@ class RealTimeCostMonitor:
                 }
             ]
         else:
-            # LIVE MODE - Return empty or fetch from AWS Cost Anomaly Detection
-            # TODO: Integrate with AWS Cost Anomaly Detection API
+            # LIVE MODE - deliberately empty. Real detection lives in
+            # finops_anomaly_detect.detect_all(), surfaced on the Cost
+            # Anomalies page; callers must not read [] here as "all clear".
             return []
     
     def get_budget_status(self):
@@ -2115,7 +2116,10 @@ def render_realtime_costs():
         for a in anomalies:
             st.warning(f"🚨 **{a['service']}** in {a['region']}: +{a['increase_pct']:.1f}% increase - {a['root_cause']}")
     elif not is_demo:
-        st.success("✅ No cost anomalies detected")
+        # detect_anomalies() returns [] in live mode - it was never wired to
+        # AWS. Empty here means "not checked", so do not claim an all-clear.
+        st.info("Cost anomaly detection is not performed here - see the "
+                "**Cost Anomalies** page for real detection and detector health.")
 
 def check_enterprise_routing():
     """Check if enterprise page is requested and route accordingly"""

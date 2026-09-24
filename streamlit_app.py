@@ -493,6 +493,15 @@ except ImportError:
     EXTERNAL_FINOPS_AVAILABLE = False
     print("Note: External FinOps module not available, using built-in FinOps section")
 
+# Import the dedicated FinOps Anomaly page (AWS Cost Anomaly Detection +
+# an independent baseline detector). Lives in its own module on purpose.
+try:
+    from finops_anomaly_page import render_anomaly_page
+    ANOMALY_PAGE_AVAILABLE = True
+except ImportError as _anomaly_import_error:
+    ANOMALY_PAGE_AVAILABLE = False
+    print(f"Note: FinOps Anomaly page not available: {_anomaly_import_error}")
+
 # NEW: Import Live FinOps Data Module (fetches REAL AWS data for Budget Tracking)
 try:
     from finops_live_data import (
@@ -10216,7 +10225,8 @@ def main():
         "🔄 Accounts",              # Tab 6 - Account Lifecycle
         "🔍 Security",              # Tab 7 - Security Findings
         "💰 FinOps",                # Tab 8 - FinOps & Cost
-        "🔗 Integrations"           # Tab 9 - Enterprise Integrations
+        "🔗 Integrations",          # Tab 9 - Enterprise Integrations
+        "🚨 Cost Anomalies"         # Tab 10 - Dedicated FinOps Anomaly page
     ])
     
     # TABS - Reorganized order
@@ -11678,312 +11688,18 @@ def main():
                     """)
     
         with finops_tab3:
-                st.subheader("⚠️ AI-Powered Cost Anomaly Detection")
-                
-                # Check mode
-                is_demo = st.session_state.get('demo_mode', False)
-                
-                if not is_demo and st.session_state.get('aws_connected', False) and FINOPS_MODULE_AVAILABLE:
-                    # LIVE MODE - Fetch real anomalies
-                    anomalies = fetch_cost_anomalies(90)
-                    
-                    if anomalies:
-                        st.success(f"✅ Found {len(anomalies)} cost anomalies from AWS Cost Anomaly Detection")
-                        
-                        # Calculate totals
-                        total_impact = sum(a.get('total_impact', 0) for a in anomalies)
-                        
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Active Anomalies", len(anomalies))
-                        with col2:
-                            st.metric("Total Cost Impact", format_cost(total_impact))
-                        with col3:
-                            high_impact = len([a for a in anomalies if a.get('total_impact', 0) > 100])
-                            st.metric("High Impact", high_impact)
-                        with col4:
-                            services = len(set(a.get('service', 'Unknown') for a in anomalies))
-                            st.metric("Services Affected", services)
-                        
-                        st.markdown("---")
-                        
-                        # Display anomalies
-                        st.markdown("### 🚨 Detected Anomalies")
-                        
-                        for i, anomaly in enumerate(anomalies[:10]):
-                            impact = anomaly.get('total_impact', 0)
-                            severity = "🔴" if impact > 500 else "🟡" if impact > 100 else "🟢"
-                            service = anomaly.get('service', 'Unknown')
-                            
-                            with st.expander(f"{severity} {service} - Impact: {format_cost(impact)}", expanded=(i < 3)):
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**Service:** {service}")
-                                    st.write(f"**Account:** {anomaly.get('account', 'Unknown')}")
-                                    st.write(f"**Region:** {anomaly.get('region', 'Unknown')}")
-                                with col2:
-                                    st.write(f"**Expected Spend:** {format_cost(anomaly.get('total_expected_spend', 0))}")
-                                    st.write(f"**Actual Spend:** {format_cost(anomaly.get('total_actual_spend', 0))}")
-                                    st.write(f"**Start Date:** {anomaly.get('start_date', 'N/A')}")
-                    else:
-                        st.success("✅ No cost anomalies detected in the last 90 days!")
-                        is_demo = False  # Don't show demo data if we got a valid (empty) response
-                else:
-                    is_demo = True
-                
-                if is_demo:
-                    # DEMO MODE
-                    st.info("📊 **Demo Mode** - Showing sample anomaly data")
-                    
-                    st.markdown("""
-                    **Real-time anomaly detection** using machine learning to identify unusual spending patterns, 
-                    budget overruns, and unexpected cost spikes across all AWS services.
-                    """)
-        
-                    col1, col2, col3, col4 = st.columns(4)
-        
-                    with col1:
-                        st.metric("Active Anomalies", "8", "-4 resolved")
-                    with col2:
-                        st.metric("Total Cost Impact", "$87K", "Last 7 days")
-                    with col3:
-                        st.metric("Auto-Resolved", "23", "This week")
-                    with col4:
-                        st.metric("Detection Accuracy", "96.8%", "+1.2%")
-        
-                    st.markdown("---")
-        
-                    # Current Anomalies - DEMO ONLY
-                    col1, col2 = st.columns([2, 1])
-        
-                    with col1:
-                        st.markdown("### 🔴 Active Cost Anomalies")
-            
-                        active_anomalies = [
-                            ("CRITICAL", "SageMaker Training Spike", "prod-ml-training-087", "$28.4K/day", "+787%", "3 days", 
-                             "ml.p4d.24xlarge instance running 24/7, typically batch jobs run 4-8 hours"),
-                            ("HIGH", "Bedrock Token Surge", "ai-agents-production", "$8.2K/day", "+245%", "2 days",
-                             "Unusual token consumption from anomaly detection agent, possible infinite loop"),
-                            ("HIGH", "Data Transfer Spike", "prod-data-pipeline-042", "$4.8K/day", "+420%", "1 day",
-                             "Cross-region data transfer to eu-west-1 from backup job misconfiguration"),
-                        ]
-            
-                        for severity, title, account, cost, increase, duration, detail in active_anomalies:
-                            if severity == "CRITICAL":
-                                color = "#dc3545"
-                            elif severity == "HIGH":
-                                color = "#D08770"
-                            else:
-                                color = "#ffc107"
-                
-                            st.markdown(f"""
-                            <div style='background: #f8f9fa; padding: 1rem; border-radius: 5px; margin: 0.5rem 0; border-left: 5px solid {color};'>
-                                <div style='display: flex; justify-content: space-between; align-items: center;'>
-                                    <div>
-                                        <strong style='color: {color}; font-size: 1.1rem;'>{severity}</strong>
-                                        <strong style='font-size: 1.1rem;'> | {title}</strong>
-                                    </div>
-                                    <div style='text-align: right;'>
-                                        <span style='color: #28a745; font-size: 1.3rem; font-weight: bold;'>{cost}</span><br/>
-                                        <span style='color: {color};'>{increase} increase</span>
-                                    </div>
-                                </div>
-                                <div style='margin-top: 0.5rem;'>
-                                    <small><strong>Account:</strong> {account}</small><br/>
-                                    <small><strong>Duration:</strong> {duration}</small><br/>
-                                    <small style='color: #666;'>{detail}</small>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-        
-                    with col2:
-                        st.markdown("### 🎯 Detection Model")
-            
-                        st.success("""
-                        **AI Anomaly Detection**
-            
-                        **Model Architecture:**
-                        - LSTM neural network
-                        - 90-day training window
-                        - Hourly predictions
-                        - 96.8% accuracy
-                        """)
-        
-                    st.markdown("---")
-        
-                        # Anomaly visualization
-                    st.markdown("### 📊 Cost Anomaly Timeline")
-        
-                        # Generate anomaly data
-                    dates = pd.date_range(end=datetime.now(), periods=168, freq='h')  # 7 days hourly
-                    baseline = np.random.normal(120000, 5000, 168)
-                    actual = baseline.copy()
-        
-                        # Add anomalies
-                    actual[60:84] = baseline[60:84] * 4.2  # SageMaker spike
-                    actual[120:144] = baseline[120:144] * 2.8  # Bedrock surge
-                    actual[150:156] = baseline[150:156] * 3.5  # Data transfer
-        
-                    fig = go.Figure()
-        
-                        # Expected baseline
-                    fig.add_trace(go.Scatter(
-                        x=dates, y=baseline,
-                        name='Expected (Baseline)',
-                        line=dict(color='#88C0D0', width=1, dash='dash'),
-                        opacity=0.7
-                    ))
-        
-                        # Actual spend
-                    fig.add_trace(go.Scatter(
-                        x=dates, y=actual,
-                        name='Actual Spend',
-                        line=dict(color='#28a745', width=2),
-                        fill='tonexty',
-                        fillcolor='rgba(163, 190, 140, 0.1)'
-                    ))
-        
-                        # Highlight anomalies
-                    anomaly_mask = actual > baseline * 2
-                    fig.add_trace(go.Scatter(
-                        x=dates[anomaly_mask],
-                        y=actual[anomaly_mask],
-                        mode='markers',
-                        name='Anomalies Detected',
-                        marker=dict(color='#dc3545', size=10, symbol='x')
-                    ))
-        
-                    fig.update_layout(
-                        height=350,
-                        yaxis_title='Hourly Cost ($)',
-                        xaxis_title='Date/Time',
-                        hovermode='x unified',
-                        legend=dict(orientation='h', yanchor='bottom', y=1.02)
-                    )
-        
-                    st.plotly_chart(fig, width="stretch")
-        
-                    st.markdown("---")
-        
-                        # AI Reasoning Example
-                    st.markdown("### 🤖 Claude Anomaly Analysis Example")
-        
-                    with st.expander("View Detailed AI Reasoning for SageMaker Anomaly", expanded=False):
-                        st.markdown("""
-                        **Anomaly ID:** ANO-2024-11-23-00142  
-                        **Detection Time:** 2024-11-23 18:34:12 UTC  
-                        **Severity:** CRITICAL  
-            
-                        ---
-            
-                        **Claude 4 Analysis:**
-            
-                        **Event Details:**
-                        - Account: prod-ml-training-087
-                        - Service: SageMaker
-                        - Normal daily spend: $3,200
-                        - Current daily spend: $28,400 (+787%)
-                        - Duration: 3 days
-                        - Total excess cost: $75,600
-            
-                        **Root Cause Analysis:**
-            
-                        I've identified an ml.p4d.24xlarge training instance (job ID: sm-train-20241120-1534) that has been 
-                        running continuously for 72 hours. Based on historical patterns, this team's training jobs typically 
-                        complete in 4-8 hours.
-            
-                        **Evidence:**
-                        1. CloudWatch metrics show flat GPU utilization at 23% (unusually low)
-                        2. Training loss hasn't improved in 48 hours (plateaued)
-                        3. No corresponding ServiceNow ticket for extended training
-                        4. Instance launched on Friday 6:34 PM (after business hours)
-                        5. Similar pattern occurred 3 months ago (ANO-2024-08-15-00087)
-            
-                        **Probable Cause:**
-                        The training script likely hit an edge case and is stuck in a loop, or the developer forgot to set 
-                        early stopping criteria. The Friday evening launch time suggests this was started before the weekend 
-                        and left running unattended.
-            
-                        **Business Impact:**
-                        - Cost impact: $75,600 (and growing at $28,400/day)
-                        - Wastes 72 hours of GPU capacity ($2,360/hour)
-                        - Blocks other teams from GPU access
-                        - Risk: Will continue until manually stopped
-            
-                        **Recommended Actions:**
-            
-                        **Immediate (Within 1 hour):**
-                        1. ✅ Alert data science team lead via Slack (sent 18:34 UTC)
-                        2. ✅ Create HIGH priority ServiceNow incident (INC0089234)
-                        3. ⏳ If no response in 30 minutes: Auto-stop training job
-                        4. ⏳ Send summary to FinOps team and account owner
-            
-                        **Preventive Measures:**
-                        1. Implement mandatory max_runtime parameter (suggest: 12 hours for this team)
-                        2. Add CloudWatch alarm for >8 hour training jobs
-                        3. Enable SageMaker automatic job termination on plateau
-                        4. Require approval for p4d instances (>$30/hour)
-            
-                        **Expected Outcome:**
-                        - Immediate: Stop runaway job, prevent additional $28K/day spend
-                        - Long-term: Prevent 90% of similar anomalies (based on historical data)
-            
-                        **Confidence Level:** 98% - High certainty this requires immediate intervention
-            
-                        **Compliance Note:**
-                        This incident demonstrates need for preventive controls per FinOps best practices. 
-                        Recommend implementing AWS Budgets with automatic actions for similar scenarios.
-            
-                        ---
-            
-                        **Action Timeline:**
-                        - 18:34 UTC: Anomaly detected by AI
-                        - 18:34 UTC: Slack alert sent to #ml-training channel
-                        - 18:35 UTC: ServiceNow incident INC0089234 created
-                        - 18:42 UTC: Data science lead acknowledged
-                        - 18:47 UTC: Training job stopped manually
-                        - 18:50 UTC: Post-mortem scheduled for Monday
-            
-                        **Status:** ✅ RESOLVED - Manual intervention completed
-                        """)
-        
-                    st.markdown("---")
-        
-                        # Anomaly statistics
-                    col1, col2, col3 = st.columns(3)
-        
-                    with col1:
-                        st.markdown("### 📈 Detection Stats (30 Days)")
-                        st.metric("Anomalies Detected", "247")
-                        st.metric("Auto-Resolved", "189", "76.5%")
-                        st.metric("Required Human Review", "58", "23.5%")
-                        st.metric("False Positives", "9", "3.6%")
-        
-                    with col2:
-                        st.markdown("### 💰 Cost Impact Prevented")
-                        st.metric("Total Excess Cost Detected", "$1.2M")
-                        st.metric("Cost Prevented", "$987K", "82%")
-                        st.metric("Avg Time to Detection", "1.8 hours")
-                        st.metric("Avg Time to Resolution", "4.2 hours")
-        
-                    with col3:
-                        st.markdown("### 🎯 Top Anomaly Types")
-            
-                        anomaly_types = [
-                            ("ML Training Overruns", 89, "36%"),
-                            ("Forgotten Resources", 67, "27%"),
-                            ("Misconfigured Auto-Scaling", 45, "18%"),
-                            ("Data Transfer Spikes", 28, "11%"),
-                            ("Other", 18, "8%")
-                        ]
-            
-                        for atype, count, pct in anomaly_types:
-                            st.markdown(f"""
-                            <div style='background: #f8f9fa; padding: 0.4rem; border-radius: 3px; margin: 0.2rem 0;'>
-                                <strong>{atype}</strong>: {count} ({pct})
-                            </div>
-                            """, unsafe_allow_html=True)
-    
+                # Retired 2026-09-23. Cost anomalies now live on their own
+                # top-level page ("Cost Anomalies"), which reports detector
+                # health honestly instead of rendering an empty result - or an
+                # AccessDenied - as "no anomalies detected".
+                st.subheader("Cost Anomalies")
+                st.info(
+                    "Cost anomaly detection has moved to its own page. "
+                    "Open the **Cost Anomalies** tab at the top of the app for "
+                    "AWS Cost Anomaly Detection, an independent baseline "
+                    "detector, detector health and AI explanations."
+                )
+
         with finops_tab4:
                 st.subheader("📊 Optimization Opportunities")
                 
@@ -14305,6 +14021,15 @@ Provide a helpful, specific answer based on the data available."""
     # Tab 9: Integrations (was Tab 10)
     with tabs[9]:
         render_enterprise_integration_scene()
+
+    # Tab 10: FinOps Cost Anomalies (dedicated page)
+    with tabs[10]:
+        if ANOMALY_PAGE_AVAILABLE:
+            render_anomaly_page()
+        else:
+            st.error("🚨 The Cost Anomalies page failed to load. "
+                     "Check that `finops_anomaly_page.py` and "
+                     "`finops_anomaly_detect.py` are present.")
 
     # Footer
     st.markdown("---")

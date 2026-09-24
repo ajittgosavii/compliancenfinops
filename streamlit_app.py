@@ -1495,6 +1495,44 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
+# DESIGN SYSTEM
+# Loaded after the legacy stylesheet above so it wins on equal specificity.
+# ============================================================================
+try:
+    import ui_theme
+    from ui_theme import page_header, status_chip, status_card, credential_row
+    ui_theme.inject_theme()
+    THEME_AVAILABLE = True
+except ImportError as _theme_import_error:
+    THEME_AVAILABLE = False
+    print(f"Note: design system not available: {_theme_import_error}")
+
+# Sidebar navigation. Indices map to the section bodies in main(); grouping is
+# by what an operator is trying to do, not by which AWS service supplies it.
+NAV_GROUPS = [
+    ('Overview', [('Dashboard', 1), ('AI insights', 0)]),
+    ('Govern', [('Compliance', 2), ('Guardrails', 4), ('Accounts', 6)]),
+    ('Secure', [('Vulnerabilities', 3), ('Security findings', 7),
+                ('Remediation', 5)]),
+    ('FinOps', [('Cost & optimization', 8), ('Cost anomalies', 10)]),
+    ('Connect', [('Integrations', 9)]),
+]
+
+SECTION_TITLES = {
+    0: ('AI insights', 'Predictive analytics across cost, security and compliance.'),
+    1: ('Dashboard', 'The current state of the connected estate.'),
+    2: ('Compliance', 'Control coverage and drift against your frameworks.'),
+    3: ('Vulnerabilities', 'Findings from Inspector across compute and containers.'),
+    4: ('Guardrails', 'Preventive controls and the policies behind them.'),
+    5: ('Remediation', 'Fixes waiting for approval, and what has already run.'),
+    6: ('Accounts', 'Account lifecycle: onboarding, offboarding and ownership.'),
+    7: ('Security findings', 'Security Hub, GuardDuty and Config in one place.'),
+    8: ('Cost & optimization', 'Where the money goes, and what can be reclaimed.'),
+    9: ('Integrations', 'Connected systems and the data they supply.'),
+    10: ('Cost anomalies', 'Unexpected spend, and whether anything is watching for it.'),
+}
+
+# ============================================================================
 # SESSION STATE INITIALIZATION
 # ============================================================================
 
@@ -2252,7 +2290,8 @@ def fetch_security_hub_findings(client) -> Dict[str, Any]:
         }
 
     if not client:
-        st.error("⚠️ AWS not connected. Enable Demo Mode or configure AWS credentials.")
+        # No UI from a data fetcher - the page-level mode banner already states
+        # that nothing is connected, and this fired once per fetcher.
         return {
             'total_findings': 0,
             'critical': 0,
@@ -2461,7 +2500,8 @@ def fetch_config_compliance(client) -> Dict[str, Any]:
         }
     
     if not client:
-        st.error("⚠️ AWS not connected. Enable Demo Mode or configure AWS credentials.")
+        # No UI from a data fetcher - the page-level mode banner already states
+        # that nothing is connected, and this fired once per fetcher.
         return {
             'compliance_rate': 0,
             'resources_evaluated': 0,
@@ -2530,7 +2570,8 @@ def fetch_guardduty_findings(client) -> Dict[str, Any]:
         }
     
     if not client:
-        st.error("⚠️ AWS not connected. Enable Demo Mode or configure AWS credentials.")
+        # No UI from a data fetcher - the page-level mode banner already states
+        # that nothing is connected, and this fired once per fetcher.
         return {
             'total_findings': 0,
             'active_threats': 0,
@@ -2711,7 +2752,8 @@ def fetch_inspector_findings(client) -> Dict[str, Any]:
         }
     
     if not client:
-        st.error("⚠️ AWS not connected. Enable Demo Mode or configure AWS credentials.")
+        # No UI from a data fetcher - the page-level mode banner already states
+        # that nothing is connected, and this fired once per fetcher.
         return {
             'total_findings': 0,
             'total_vulnerabilities': 0,
@@ -5558,20 +5600,36 @@ def render_overall_score_card(score: float, sec_hub_data: Dict = None):
             critical_findings = "0"
             critical_findings_delta = "Not connected"
     
+    # A score computed from no data is not a 100% pass. When nothing has been
+    # checked, say so rather than awarding an A+ for an empty result set.
+    assessed = (st.session_state.get('demo_mode', False)
+                or st.session_state.get('aws_connected', False))
+
     # Render metrics
     col1, col2, col3, col4 = st.columns(4)
-    
+
+    # "Not connected" is not an improvement, so it must not render with a green
+    # upward arrow. delta_color="off" makes the caption neutral.
+    delta_tone = "normal" if assessed else "off"
+
     with col1:
-        st.metric("Overall Compliance Score", f"{score}%", f"{grade} Grade")
-    
+        if assessed:
+            st.metric("Overall Compliance Score", f"{score}%", f"{grade} Grade")
+        else:
+            st.metric("Overall Compliance Score", "Not assessed",
+                      "No account connected", delta_color="off")
+
     with col2:
-        st.metric("Active Accounts", active_accounts, active_accounts_delta)
-    
+        st.metric("Active Accounts", active_accounts, active_accounts_delta,
+                  delta_color=delta_tone)
+
     with col3:
-        st.metric("Auto-Remediated Today", auto_remediated, auto_remediated_delta)
-    
+        st.metric("Auto-Remediated Today", auto_remediated, auto_remediated_delta,
+                  delta_color=delta_tone)
+
     with col4:
-        st.metric("Critical Findings", critical_findings, critical_findings_delta)
+        st.metric("Critical Findings", critical_findings, critical_findings_delta,
+                  delta_color=delta_tone)
     
     # Progress bar with dynamic messaging based on status
     if status == "Excellent":
@@ -5585,18 +5643,23 @@ def render_overall_score_card(score: float, sec_hub_data: Dict = None):
     else:  # Critical
         status_message = "Your organization's security posture is critical. Urgent action is required to remediate security findings and improve compliance."
     
+    if not assessed:
+        status = "Not assessed"
+        color = "medium"
+        status_message = ("No AWS account is connected, so no control has been "
+                          "evaluated. Connect an account, or turn on demo mode "
+                          "to explore the platform with sample data.")
+
     st.markdown(f"""
     <div class='score-card {color}'>
-        <h3>Compliance Status: {status}</h3>
+        <h3>Compliance status: {status}</h3>
         <p>{status_message}</p>
     </div>
     """, unsafe_allow_html=True)
 
-# Starting around line 2845
-
 def render_service_status_grid():
     """Render service status grid showing all integrated AWS services"""
-    st.markdown("### 🔧 Integrated Services Status")
+    st.markdown("#### Integrated services")
     
     if st.session_state.get('demo_mode', False):
         # DEMO MODE - Show demo data
@@ -5823,11 +5886,15 @@ def render_service_status_grid():
                 metric_key = 'Status'
                 metric_value = data['status']
             
+            # State is carried by the left rail, so the badge does not have to
+            # shout. Healthy is green, not amber.
+            state = 'ok' if data['status'] == 'active' else 'unknown'
             st.markdown(f"""
-            <div style='padding: 1rem; background: white; border-radius: 8px; margin: 0.5rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);'>
-                <strong>{service}</strong><br>
-                {badge_html}<br>
-                <small>{metric_key.title().replace('_', ' ')}: {metric_value}</small>
+            <div class='cc-card' data-state='{state}'>
+                <div class='cc-card-title'>{service}</div>
+                <div class='cc-card-value'>{metric_value}</div>
+                <div class='cc-card-note'>{metric_key.title().replace('_', ' ')}</div>
+                <div style='margin-top:0.45rem;'>{badge_html}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -7076,7 +7143,7 @@ def render_remediation_dashboard():
 def render_enterprise_multi_account_sidebar():
     """Render enterprise multi-account management sidebar"""
     
-    st.markdown("### 🏢 Enterprise Multi-Account")
+    st.markdown("#### Multi-account")
     
     # Enable/disable multi-account mode
     multi_account_enabled = st.checkbox(
@@ -7244,10 +7311,10 @@ def render_sidebar():
                 if st.session_state.get('authenticated') and hasattr(st.session_state, 'user'):
                     render_enterprise_sidebar()
         
-        st.markdown("## ⚙️ Configuration")
+        st.markdown("#### Configuration")
         
         # 🆕 DEMO/LIVE TOGGLE - PROMINENT PLACEMENT
-        st.markdown("### 🎮 Data Mode")
+        st.markdown("#### Data mode")
         
         col1, col2 = st.columns([1, 1])
         
@@ -7291,7 +7358,7 @@ def render_sidebar():
         st.markdown("---")
         
         # Credentials Section
-        st.markdown("### 🔐 Credentials")
+        st.markdown("#### Connections")
         
         try:
             # Support every credential layout: [aws] section, flat top-level
@@ -7338,23 +7405,38 @@ def render_sidebar():
             has_claude = bool(claude_key)
             has_github = "token" in st.secrets.get("github", {})
             
-            st.markdown(f"{'✅' if has_aws else '❌'} AWS Credentials")
-            if has_aws:
-                st.markdown(f"📍 **Region:** `{aws_region}`")
-                # Show masked access key for debugging
-                masked_key = aws_access_key[:4] + "..." + aws_access_key[-4:] if len(aws_access_key) > 8 else "****"
-                masked_secret = aws_secret_key[:4] + "..." + aws_secret_key[-4:] if len(aws_secret_key) > 8 else "****"
-                st.caption(f"Key: `{masked_key}` ({len(aws_access_key)} chars)")
-                st.caption(f"Secret: `{masked_secret}` ({len(aws_secret_key)} chars)")
-                
-                # Show any issues found
-                if access_key_issues:
-                    st.warning(f"⚠️ Access Key issues: {', '.join(access_key_issues)}")
-                if secret_key_issues:
-                    st.warning(f"⚠️ Secret Key issues: {', '.join(secret_key_issues)}")
-                    
-            st.markdown(f"{'✅' if has_claude else '❌'} Claude AI API Key")
-            st.markdown(f"{'✅' if has_github else '❌'} GitHub Token")
+            demo_mode = st.session_state.get('demo_mode', False)
+            masked_key = (aws_access_key[:4] + "…" + aws_access_key[-4:]
+                          if len(aws_access_key or '') > 8 else "")
+
+            if THEME_AVAILABLE:
+                # AWS is only *required* for live data. Flagging it red while
+                # demo mode is on made a working app look broken.
+                credential_row(
+                    "AWS account", has_aws, required=not demo_mode,
+                    detail=f"{aws_region}  {masked_key}" if has_aws else "",
+                    hint=("Not needed while demo mode is on" if demo_mode
+                          else "Add an [aws] section to secrets to read live data"))
+                credential_row(
+                    "Claude API key", has_claude, required=False,
+                    detail="AI analysis enabled",
+                    hint="Add [anthropic] api_key to turn on AI analysis")
+                credential_row(
+                    "GitHub token", has_github, required=False,
+                    detail="Repository scanning enabled",
+                    hint="Only needed for repository scanning")
+            else:
+                st.markdown(f"{'✅' if has_aws else '❌'} AWS Credentials")
+                st.markdown(f"{'✅' if has_claude else '❌'} Claude AI API Key")
+                st.markdown(f"{'✅' if has_github else '❌'} GitHub Token")
+
+            # Malformed secrets are a real failure - surface those loudly.
+            # A well-formed key that simply is not set is not an error.
+            if has_aws and (access_key_issues or secret_key_issues):
+                for issue in access_key_issues:
+                    st.warning(f"Access key: {issue}")
+                for issue in secret_key_issues:
+                    st.warning(f"Secret key: {issue}")
             
             # Add Test Credentials button for debugging
             if has_aws:
@@ -7456,13 +7538,23 @@ def render_sidebar():
                         st.rerun()
         
         except Exception as e:
-            # Ignore exceptions if already connected - everything is working
-            pass
+            # This block reads st.secrets, which raises outright when no secrets
+            # file exists - so a bare pass rendered the Connections panel as
+            # blank space. An empty panel tells an operator nothing.
+            if THEME_AVAILABLE:
+                credential_row("AWS account", False, required=False,
+                               hint="No secrets configured")
+                credential_row("Claude API key", bool(resolve_anthropic_key()),
+                               required=False, detail="AI analysis enabled",
+                               hint="No secrets configured")
+            else:
+                st.caption("No credentials configured.")
+            st.caption(f"Secrets unavailable: {str(e)[:90]}")
 
         st.markdown("---")
         
         # Portfolio & Service Filters
-        st.markdown("### 🎛️ Filters")
+        st.markdown("#### Filters")
         
         portfolios = st.multiselect(
             "Portfolios",
@@ -7481,7 +7573,7 @@ def render_sidebar():
         st.markdown("---")
         
         # Quick Actions
-        st.markdown("### ⚡ Quick Actions")
+        st.markdown("#### Quick actions")
         
         if st.button("🔄 Refresh Data", width="stretch"):
             st.cache_data.clear()
@@ -7499,7 +7591,7 @@ def render_sidebar():
         st.markdown("---")
         
         # System Status
-        st.markdown("### 📡 System Status")
+        st.markdown("#### System status")
         
         # ✅ FIX: Show demo status or real status based on mode
         if st.session_state.get('demo_mode', False):
@@ -7519,26 +7611,18 @@ def render_sidebar():
         st.markdown("---")
         
         # Debug Mode
-        st.markdown("### 🐛 Debug Options")
-        debug_mode = st.checkbox("Enable Debug Mode", value=False)
+        st.markdown("#### Diagnostics")
+        debug_mode = st.checkbox(
+            "Show data source details", value=False,
+            help="Reveals which data source each panel is reading from. "
+                 "Off by default so operators are not shown internal state.")
         st.session_state.debug_mode = debug_mode
-        if debug_mode:
-            st.info("Debug mode enabled - extra diagnostic info will be shown")
-        
+
         st.markdown("---")
-        
-        # Version Info
-        st.markdown("""
-        <div style='font-size: 0.8rem; color: #666;'>
-            <strong>Future Minds Platform</strong><br>
-            v4.0 - AWS Edition<br>
-            <small>Build: 2024.11.16</small>
-        </div>
-        """, unsafe_allow_html=True)
     # At the bottom of your sidebar code
     with st.sidebar:
         st.markdown("---")
-        st.markdown("### 🔧 Admin Tools")
+        st.markdown("#### Admin tools")
         # Commented out until Admin_Deployment page is created
         # st.page_link("pages/Admin_Deployment.py", label="AWS Deployment", icon="🚀")
 # ============================================================================
@@ -8843,51 +8927,42 @@ def render_unified_compliance_dashboard():
 
 
 def render_mode_banner():
-    """Render a prominent banner showing current mode"""
-    if st.session_state.get('demo_mode', False):
-        st.markdown("""
-        <div style='background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%); 
-                    padding: 1rem; 
-                    border-radius: 10px; 
-                    text-align: center; 
-                    margin-bottom: 1rem;
-                    border: 3px solid #E65100;'>
-            <h3 style='color: white; margin: 0;'>🟠 DEMO MODE ACTIVE</h3>
-            <p style='color: white; margin: 0.5rem 0 0 0;'>
-                You are viewing <strong>sample demonstration data</strong>. 
-                Switch to Live Mode in the sidebar to see your real AWS data.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+    """
+    One quiet line saying which data the screen is showing.
+
+    This used to be a full-bleed gradient banner with a 3px border - it shouted
+    the same way whether everything was fine or nothing was connected, so it
+    stopped carrying information. Mode is a fact about the page, not an alarm.
+    """
+    demo = st.session_state.get('demo_mode', False)
+    connected = st.session_state.get('aws_connected', False)
+
+    if demo:
+        state, text = 'warn', ('Demo mode - every figure on this page is sample '
+                               'data. Switch to live mode in the sidebar to read '
+                               'your own account.')
+    elif connected:
+        state, text = 'ok', 'Live - reading your connected AWS account.'
     else:
-        if st.session_state.get('aws_connected'):
-            st.markdown("""
-            <div style='background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); 
-                        padding: 1rem; 
-                        border-radius: 10px; 
-                        text-align: center; 
-                        margin-bottom: 1rem;
-                        border: 3px solid #2E7D32;'>
-                <h3 style='color: white; margin: 0;'>🟢 LIVE MODE - Connected to AWS</h3>
-                <p style='color: white; margin: 0.5rem 0 0 0;'>
-                    You are viewing <strong>real data</strong> from your AWS account.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style='background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%); 
-                        padding: 1rem; 
-                        border-radius: 10px; 
-                        text-align: center; 
-                        margin-bottom: 1rem;
-                        border: 3px solid #C62828;'>
-                <h3 style='color: white; margin: 0;'>🔴 LIVE MODE - Not Connected</h3>
-                <p style='color: white; margin: 0.5rem 0 0 0;'>
-                    Configure AWS credentials in the sidebar or enable Demo Mode to view sample data.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+        state, text = 'unknown', ('Not connected. Nothing on this page has been '
+                                  'checked against an AWS account - add credentials '
+                                  'in the sidebar, or turn on demo mode to explore '
+                                  'with sample data.')
+
+    if THEME_AVAILABLE:
+        colour, background = ui_theme.STATES[state]
+        st.markdown(
+            "<div style='background:{0};border-left:3px solid {1};"
+            "border-radius:6px;padding:0.6rem 0.85rem;margin-bottom:1rem;"
+            "font-size:0.885rem;color:#1A2332;'>{2}</div>".format(
+                background, colour, text),
+            unsafe_allow_html=True)
+    elif demo:
+        st.warning(text)
+    elif connected:
+        st.success(text)
+    else:
+        st.info(text)
 
 # ============================================================================
 # MAIN APPLICATION
@@ -9786,9 +9861,11 @@ def render_ai_executive_dashboard(claude_available):
         # Gather real AWS data
         real_data = gather_real_aws_data()
         
-        # Show debug info
-        if real_data and real_data.get('_debug'):
-            with st.expander("🔍 Debug: Data Source Status", expanded=True):
+        # Data-source diagnostics. Collapsed, and only shown at all when
+        # diagnostics are switched on - an operator should never be met with a
+        # raw JSON dump of internal state.
+        if real_data and real_data.get('_debug') and st.session_state.get('debug_mode'):
+            with st.expander("Data source diagnostics", expanded=False):
                 st.json(real_data.get('_debug'))
                 if real_data.get('_status'):
                     st.info(real_data.get('_status'))
@@ -10182,57 +10259,50 @@ def main():
     
     initialize_session_state()
     
-    # Render sidebar
+    # Sidebar: navigation first, then configuration and credentials
+    if THEME_AVAILABLE:
+        with st.sidebar:
+            ui_theme.brand('Cloud Compliance Canvas',
+                           'demo' if st.session_state.get('demo_mode') else 'live')
+            active_section = ui_theme.render_navigation(NAV_GROUPS)
+            st.markdown('---')
+    else:
+        active_section = st.session_state.get('active_section', 1)
+
     render_sidebar()
-    
-    # Main header
-    st.markdown(f"""
-    <div class="main-header">
-        <h1>☁️ Cloud Compliance Canvas | Enterprise Platform</h1>
-        <p>AI-Powered AWS Governance • Complete Security Monitoring • Advanced FinOps Intelligence • Automated Compliance</p>
-        <div class="company-badge">Enterprise Edition v6.0 | Demo/Live Mode</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
+
+    # Page header - the section and the question it answers
+    section_title, section_subtitle = SECTION_TITLES.get(
+        active_section, ('Cloud Compliance Canvas', ''))
+    if THEME_AVAILABLE:
+        page_header(section_title, section_subtitle)
+    else:
+        st.markdown(f"## {section_title}")
+
     # Mode indicator banner
     render_mode_banner()
-    
+
     # Fetch Security Hub data
     sec_hub_data = fetch_security_hub_findings(
         (st.session_state.get('aws_clients') or {}).get('securityhub')
     )
-    
-    # Calculate and display overall score
+
+    # Calculate overall score - kept on every load because other views read it
+    # from session state, but only *rendered* on the overview. A wall of
+    # estate-wide widgets above every page is what made this feel like a demo.
     overall_score = calculate_overall_compliance_score(sec_hub_data)
     st.session_state.overall_compliance_score = overall_score
-    render_overall_score_card(overall_score, sec_hub_data)
-    
-    st.markdown("---")
-    
-    # Service status grid
-    render_service_status_grid()
-    
-    st.markdown("---")
-    
-    # Main navigation tabs - reorganized with shorter names
-    tabs = st.tabs([
-        "🔮 AI Predictions",        # Tab 0 - PREDICTIVE AI (moved to first)
-        "📊 Dashboard",             # Tab 1 - Overview
-        "🎯 Compliance",            # Tab 2 - Unified Compliance
-        "🔬 Vulnerabilities",       # Tab 3 - Inspector
-        "🚧 Guardrails",            # Tab 4 - Tech Guardrails
-        "🤖 Remediation",           # Tab 5 - AI + Unified Remediation combined
-        "🔄 Accounts",              # Tab 6 - Account Lifecycle
-        "🔍 Security",              # Tab 7 - Security Findings
-        "💰 FinOps",                # Tab 8 - FinOps & Cost
-        "🔗 Integrations",          # Tab 9 - Enterprise Integrations
-        "🚨 Cost Anomalies"         # Tab 10 - Dedicated FinOps Anomaly page
-    ])
-    
-    # TABS - Reorganized order
-    
+
+    if active_section == 1:
+        render_overall_score_card(overall_score, sec_hub_data)
+        st.markdown("---")
+        render_service_status_grid()
+        st.markdown("---")
+
+    # SECTIONS - chosen from the sidebar; indices match NAV_GROUPS
+
     # Tab 0: AI Predictions (moved from Tab 11)
-    with tabs[0]:
+    if active_section == 0:
         st.markdown("## 🔮 AI Command Center")
         st.markdown("**Predictive Analytics & Proactive Insights powered by Claude AI**")
         
@@ -10275,19 +10345,19 @@ def main():
             render_proactive_alerts(claude_available)
     
     # Tab 1: Dashboard (was Tab 1)
-    with tabs[1]:
+    if active_section == 1:
         render_overview_dashboard()
     
     # Tab 2: Compliance (was Tab 0)
-    with tabs[2]:
+    if active_section == 2:
         render_unified_compliance_dashboard()
     
     # Tab 3: Vulnerabilities (was Tab 2)
-    with tabs[3]:
+    if active_section == 3:
         render_inspector_vulnerability_dashboard()
     
     # Tab 4: Tech Guardrails - Enterprise Module with Unified Workflow
-    with tabs[4]:
+    if active_section == 4:
         # Mode selector at the top
         st.markdown("""
         <div style='background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3b82f6 100%); 
@@ -10382,7 +10452,7 @@ def main():
                 """)
     
     # Tab 5: Remediation (combined AI + Unified)
-    with tabs[5]:
+    if active_section == 5:
         st.markdown("## 🤖 AI-Powered Remediation")
         
         # Feature Status Banner
@@ -10412,42 +10482,42 @@ def main():
             "AI Insights",
             "Code Generation",
             "Batch Remediation"
-    ])
+        ])
     
-    with ai_tabs[0]:
-        # Threat Analysis - stores threats in session state
-        render_ai_threat_analysis_scene()
+        with ai_tabs[0]:
+            # Threat Analysis - stores threats in session state
+            render_ai_threat_analysis_scene()
     
-    with ai_tabs[1]:
-        # Your existing AI insights code
-        render_ai_insights_panel(st.session_state.claude_client)
+        with ai_tabs[1]:
+            # Your existing AI insights code
+            render_ai_insights_panel(st.session_state.claude_client)
     
-    with ai_tabs[2]:
-        # Code Generation - PRODUCTION IMPLEMENTATION
-        selected_threat = st.session_state.get('selected_threat')
-        render_code_generation_tab(threat=selected_threat)
+        with ai_tabs[2]:
+            # Code Generation - PRODUCTION IMPLEMENTATION
+            selected_threat = st.session_state.get('selected_threat')
+            render_code_generation_tab(threat=selected_threat)
     
-    with ai_tabs[3]:
-        # Batch Remediation - PRODUCTION IMPLEMENTATION
-        available_threats = st.session_state.get('available_threats', [])
-        render_batch_remediation_ui()
+        with ai_tabs[3]:
+            # Batch Remediation - PRODUCTION IMPLEMENTATION
+            available_threats = st.session_state.get('available_threats', [])
+            render_batch_remediation_ui()
         
-        # Unified Remediation section within the same tab
-        st.markdown("---")
-        st.markdown("### 🎯 Unified Remediation Dashboard")
-        st.markdown("*Single pane of glass for all remediation activities*")
+            # Unified Remediation section within the same tab
+            st.markdown("---")
+            st.markdown("### 🎯 Unified Remediation Dashboard")
+            st.markdown("*Single pane of glass for all remediation activities*")
         
-        if UNIFIED_REMEDIATION_AVAILABLE:
-            render_unified_remediation_dashboard()
-        else:
-            st.info("Enable unified_remediation_dashboard.py for cross-platform remediation")
+            if UNIFIED_REMEDIATION_AVAILABLE:
+                render_unified_remediation_dashboard()
+            else:
+                st.info("Enable unified_remediation_dashboard.py for cross-platform remediation")
     
-    # Tab 6: Accounts (was Tab 7)
-    with tabs[6]:
+        # Tab 6: Accounts (was Tab 7)
+    if active_section == 6:
         render_enhanced_account_lifecycle()
     
     # Tab 7: Security (was Tab 8)
-    with tabs[7]:
+    if active_section == 7:
         st.markdown("## 🔍 Security Findings")
         
         is_demo = st.session_state.get('demo_mode', False)
@@ -10744,7 +10814,7 @@ def main():
 
     
     # Tab 8: FinOps (was Tab 9)
-    with tabs[8]:
+    if active_section == 8:
         st.markdown("## 💰 FinOps & Cost Management")
         
         # Create sub-tabs
@@ -14019,11 +14089,11 @@ Provide a helpful, specific answer based on the data available."""
                         st.info("Connect to AWS and configure Claude API key to enable real AI analysis")
 
     # Tab 9: Integrations (was Tab 10)
-    with tabs[9]:
+    if active_section == 9:
         render_enterprise_integration_scene()
 
     # Tab 10: FinOps Cost Anomalies (dedicated page)
-    with tabs[10]:
+    if active_section == 10:
         if ANOMALY_PAGE_AVAILABLE:
             render_anomaly_page()
         else:

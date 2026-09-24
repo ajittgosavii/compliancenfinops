@@ -48,7 +48,20 @@ def _safe_key(value: str) -> str:
 
 
 def _manager():
-    """The app's Firebase manager, or None when it is not configured."""
+    """
+    The app's Firebase manager, or None when it is not configured.
+
+    Checks for credentials before constructing the manager: the manager's own
+    constructor renders Streamlit errors and a setup guide when secrets are
+    missing, which would print a wall of Firebase instructions onto a cost
+    page that works perfectly well without it.
+    """
+    try:
+        if 'firebase' not in st.secrets:
+            return None
+    except Exception:
+        return None          # no secrets file at all
+
     try:
         from auth_database_firebase import get_firebase_manager
     except Exception:

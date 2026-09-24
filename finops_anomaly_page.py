@@ -65,7 +65,8 @@ LEVEL_STYLES = {
 }
 
 
-def verdict_for(result: Dict[str, Any]) -> Tuple[str, str, str]:
+def verdict_for(result: Dict[str, Any], demo_mode: bool = False
+                ) -> Tuple[str, str, str]:
     """
     Reduce a detect_all() result to (level, headline, detail).
 
@@ -74,6 +75,14 @@ def verdict_for(result: Dict[str, Any]) -> Tuple[str, str, str]:
     """
     health = result.get('health') or {}
     status = health.get('status')
+
+    # This page reads Cost Explorer directly and has no sample data. Saying
+    # "not connected" under a banner promising sample figures is confusing, and
+    # inventing demo anomalies would undermine the point of the page.
+    if demo_mode and status == det.STATUS_NO_CLIENT:
+        return ('unknown', 'No sample data on this page',
+                'Anomaly detection reads AWS Cost Explorer directly, so it has '
+                'nothing to show in demo mode. Connect an account to use it.')
     anomalies = result.get('anomalies') or []
     baseline_status = result.get('baseline_status')
     baseline_ran = baseline_status == det.STATUS_OK
@@ -132,7 +141,8 @@ def verdict_for(result: Dict[str, Any]) -> Tuple[str, str, str]:
 # --- Sections --------------------------------------------------------------
 
 def render_verdict(result: Dict[str, Any]) -> None:
-    level, headline, detail = verdict_for(result)
+    level, headline, detail = verdict_for(
+        result, demo_mode=st.session_state.get('demo_mode', False))
     colour, background, label = LEVEL_STYLES[level]
     st.markdown(
         """<div style='background:{bg};border-left:6px solid {fg};padding:1.25rem 1.5rem;
@@ -396,7 +406,8 @@ def _render_state_controls(anomaly: Dict[str, Any], state: Dict[str, Any]) -> No
 # --- Entry point -----------------------------------------------------------
 
 def render_anomaly_page() -> None:
-    st.markdown('## 🚨 FinOps Cost Anomalies')
+    # The host app renders the page title and subtitle; repeating them here
+    # gave the page two headings.
     st.caption('AWS Cost Anomaly Detection plus an independent baseline detector, '
                'cross-referenced. A finding both agree on is the strongest signal.')
 

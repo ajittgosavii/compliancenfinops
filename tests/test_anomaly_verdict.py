@@ -61,6 +61,21 @@ def test_not_connected_is_not_clear():
     assert 'Not connected' in headline
 
 
+def test_demo_mode_says_it_has_no_sample_data_rather_than_inventing_some():
+    """The page reads Cost Explorer directly; faking anomalies would defeat it."""
+    level, headline, detail = page.verdict_for(
+        result(det.STATUS_NO_CLIENT), demo_mode=True)
+    assert level == 'unknown'
+    assert 'No sample data' in headline
+    assert 'Connect an account' in detail
+
+
+def test_demo_mode_does_not_suppress_real_findings():
+    _, headline, _ = page.verdict_for(
+        result(det.STATUS_OK, [anomaly(900)]), demo_mode=True)
+    assert '1 cost anomaly' in headline
+
+
 def test_error_is_not_clear():
     level, _, _ = page.verdict_for(result(det.STATUS_ERROR, message='boom'))
     assert level == 'unknown'

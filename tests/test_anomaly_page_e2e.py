@@ -33,8 +33,14 @@ def test_full_page_renders():
     app = run('findings')
     assert not app.exception, app.exception
     text = all_text(app)
-    assert 'FinOps Cost Anomalies' in text
+    assert 'independent baseline detector' in text
     assert '1 cost anomaly' in text
+
+
+def test_page_does_not_render_its_own_title():
+    """The host app supplies the page header; two headings looked broken."""
+    app = run('findings')
+    assert 'FinOps Cost Anomalies' not in all_text(app)
 
 
 def test_full_page_shows_the_summary_metrics():

@@ -809,7 +809,7 @@ def render_user_menu():
     
     with st.sidebar:
         st.markdown("---")
-        st.markdown("### 👤 User")
+        st.markdown("#### Signed in")
         
         # User info
         role_color = RoleManager.get_role_color(user_role)

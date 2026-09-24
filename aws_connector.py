@@ -76,9 +76,11 @@ def get_aws_credentials_from_secrets() -> Tuple[Optional[AWSCredentials], str]:
                     aws_secrets.get('MANAGEMENT_SECRET_ACCESS_KEY')
                 )
                 region = (
-                    aws_secrets.get('default_region') or 
-                    aws_secrets.get('region') or 
+                    aws_secrets.get('default_region') or
+                    aws_secrets.get('region') or
                     aws_secrets.get('AWS_REGION') or
+                    aws_secrets.get('AWS_DEFAULT_REGION') or
+                    aws_secrets.get('DEFAULT_REGION') or
                     'us-east-1'
                 )
                 
@@ -113,7 +115,9 @@ def get_aws_credentials_from_secrets() -> Tuple[Optional[AWSCredentials], str]:
                 return AWSCredentials(
                     access_key_id=access_key.strip(),
                     secret_access_key=secret_key.strip(),
-                    region=st.secrets.get('AWS_REGION', 'us-east-1'),
+                    region=(st.secrets.get('AWS_REGION')
+                            or st.secrets.get('AWS_DEFAULT_REGION')
+                            or 'us-east-1'),
                     role_arn=st.secrets.get('AWS_ROLE_ARN'),
                     external_id=st.secrets.get('AWS_EXTERNAL_ID'),
                     source="secrets"

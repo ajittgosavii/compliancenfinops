@@ -76,9 +76,15 @@ def test_no_monitor_scenario_does_not_claim_all_clear():
     assert 'No cost anomalies detected' not in all_text(app)
 
 
-def test_ai_section_degrades_without_a_key():
-    """No API key in the test environment - the page must say so, not crash."""
+def test_ai_section_renders_either_way():
+    """
+    With a key the page offers to explain; without one it says why it cannot.
+    Either is correct - what must never happen is a crash or a silent gap.
+    Written to tolerate whatever secrets exist on the machine running this.
+    """
     app = run('findings')
     assert not app.exception
     text = all_text(app)
-    assert 'API key' in text or 'Explanations enabled' in text
+    has_button = any(b.label == 'Explain this anomaly' for b in app.button)
+    says_why = 'API key' in text or 'unavailable' in text
+    assert has_button or says_why, 'AI section rendered nothing at all'

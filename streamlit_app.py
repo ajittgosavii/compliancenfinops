@@ -2208,42 +2208,74 @@ def resolve_anthropic_key():
     return None
 
 
+def _credential_lookup(mapping):
+    """
+    Normalise a secrets mapping so key naming stops mattering.
+
+    Case is folded and an AWS_ prefix is optional, so `AWS_ACCESS_KEY_ID`,
+    `aws_access_key_id` and `access_key_id` all resolve to the same thing -
+    inside an [aws] section or at the top level. Previously the uppercase
+    names were only recognised at the top level, so the very natural
+
+        [aws]
+        AWS_ACCESS_KEY_ID = "AKIA..."
+
+    silently resolved to no credentials at all.
+    """
+    lookup = {}
+    try:
+        items = list(mapping.items()) if mapping else []
+    except Exception:
+        return lookup
+    for key, value in items:
+        if not isinstance(value, str):
+            continue                      # skip nested sections
+        name = str(key).strip().lower()
+        lookup.setdefault(name, value)
+        if name.startswith('aws_'):
+            lookup.setdefault(name[4:], value)
+    return lookup
+
+
+def _pick(*sources, names=()):
+    for source in sources:
+        for name in names:
+            value = source.get(name)
+            if value:
+                return value
+    return None
+
+
 def resolve_aws_credentials():
     """Resolve AWS credentials from any supported layout.
 
-    Order: [aws] section (access_key_id/secret_access_key or management_*),
-    then flat top-level secrets (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY), then
-    environment variables. Returns a dict; values may be '' if not found.
+    Looks in the [aws] section, then flat top-level secrets, then environment
+    variables. Key naming is case-insensitive and the AWS_ prefix is optional
+    in every location. Returns a dict; values may be '' if not found.
     """
     import os
     try:
         aws_secrets = st.secrets.get("aws", {}) or {}
     except Exception:
         aws_secrets = {}
+    try:
+        top_level = st.secrets
+    except Exception:
+        top_level = {}
 
-    def _sget(name):
-        try:
-            return st.secrets.get(name)
-        except Exception:
-            return None
+    section = _credential_lookup(aws_secrets)
+    flat = _credential_lookup(top_level)
+    env = _credential_lookup(os.environ)
 
-    access_key = (aws_secrets.get("access_key_id")
-                  or aws_secrets.get("management_access_key_id")
-                  or _sget("AWS_ACCESS_KEY_ID")
-                  or os.environ.get("AWS_ACCESS_KEY_ID") or "")
-    secret_key = (aws_secrets.get("secret_access_key")
-                  or aws_secrets.get("management_secret_access_key")
-                  or _sget("AWS_SECRET_ACCESS_KEY")
-                  or os.environ.get("AWS_SECRET_ACCESS_KEY") or "")
-    region = (aws_secrets.get("region")
-              or aws_secrets.get("default_region")
-              or _sget("AWS_DEFAULT_REGION") or _sget("AWS_REGION")
-              or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
-              or "us-east-1")
-    session_token = (aws_secrets.get("session_token")
-                     or aws_secrets.get("aws_session_token")
-                     or _sget("AWS_SESSION_TOKEN")
-                     or os.environ.get("AWS_SESSION_TOKEN") or "")
+    access_key = _pick(section, flat, env,
+                       names=("access_key_id", "management_access_key_id")) or ""
+    secret_key = _pick(section, flat, env,
+                       names=("secret_access_key",
+                              "management_secret_access_key")) or ""
+    region = _pick(section, flat, env,
+                   names=("region", "default_region")) or "us-east-1"
+    session_token = _pick(section, flat, env, names=("session_token",)) or ""
+
     return {
         "access_key": str(access_key).strip(),
         "secret_key": str(secret_key).strip(),
@@ -7412,11 +7444,23 @@ def render_sidebar():
             if THEME_AVAILABLE:
                 # AWS is only *required* for live data. Flagging it red while
                 # demo mode is on made a working app look broken.
+                if has_aws:
+                    aws_hint = ""
+                elif demo_mode:
+                    aws_hint = "Not needed while demo mode is on"
+                elif aws_secrets:
+                    # An [aws] section exists but nothing usable came out of it -
+                    # name the keys that are actually there, so the mismatch is
+                    # visible instead of looking like a missing secret.
+                    found = ", ".join(sorted(str(k) for k in aws_secrets.keys())) or "none"
+                    aws_hint = f"[aws] section found but no key/secret in it. Keys present: {found}"
+                else:
+                    aws_hint = "Add an [aws] section to secrets to read live data"
+
                 credential_row(
                     "AWS account", has_aws, required=not demo_mode,
                     detail=f"{aws_region}  {masked_key}" if has_aws else "",
-                    hint=("Not needed while demo mode is on" if demo_mode
-                          else "Add an [aws] section to secrets to read live data"))
+                    hint=aws_hint)
                 credential_row(
                     "Claude API key", has_claude, required=False,
                     detail="AI analysis enabled",

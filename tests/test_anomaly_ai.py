@@ -289,5 +289,21 @@ def test_status_with_a_key(monkeypatch):
 
 
 def test_env_var_is_a_valid_key_source(monkeypatch):
+    """Isolated from any secrets.toml that happens to exist on this machine."""
+    import types
+    monkeypatch.setattr(ai, 'st', types.SimpleNamespace(session_state={}))
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-from-env')
     assert ai._resolve_api_key() == 'sk-ant-from-env'
+
+
+def test_secrets_take_precedence_over_the_environment(monkeypatch):
+    import types
+
+    class Secrets(dict):
+        pass
+
+    monkeypatch.setattr(ai, 'st', types.SimpleNamespace(
+        secrets=Secrets({'anthropic': {'api_key': 'sk-ant-from-secrets'}}),
+        session_state={}))
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'sk-ant-from-env')
+    assert ai._resolve_api_key() == 'sk-ant-from-secrets'

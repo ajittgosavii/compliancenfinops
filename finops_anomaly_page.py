@@ -48,6 +48,10 @@ except ImportError:
 # --- Presentation helpers --------------------------------------------------
 
 def format_cost(cost: float) -> str:
+    # Cost Explorer returns tiny negative residuals for credits and refunds,
+    # which render as "-$0.00" and read like a bug on screen.
+    if abs(cost) < 0.005:
+        return '$0.00'
     if cost >= 1_000_000:
         return '${0:.2f}M'.format(cost / 1_000_000)
     if cost >= 1_000:
@@ -430,9 +434,18 @@ def render_anomaly_page() -> None:
                                      det.DEFAULT_SENSITIVITY, 0.5,
                                      key='anomaly_sensitivity',
                                      help='Lower finds more, and more noise.')
-    min_impact = controls[2].number_input('Min impact $/day', min_value=0.0,
-                                          value=det.DEFAULT_MIN_IMPACT, step=5.0,
-                                          key='anomaly_min_impact')
+    with controls[2]:
+        auto_impact = st.checkbox(
+            'Scale threshold to this account', value=True,
+            key='anomaly_auto_impact',
+            help='A fixed dollar floor cannot suit every account. On this '
+                 'setting the threshold is a quarter of the median daily '
+                 'spend, and the figure used is shown below.')
+        min_impact = None
+        if not auto_impact:
+            min_impact = st.number_input('Min impact $/day', min_value=0.0,
+                                         value=det.DEFAULT_MIN_IMPACT, step=1.0,
+                                         key='anomaly_min_impact')
     controls[3].write('')
     refresh = controls[3].button('🔄 Run detection', type='primary',
                                  key='anomaly_refresh')
@@ -476,6 +489,12 @@ def render_anomaly_page() -> None:
     summary[2].metric('Confirmed by both', result.get('confirmed_count', 0))
     summary[3].metric('Services affected',
                       len({a.get('service') for a in anomalies}))
+
+    used = result.get('min_impact_used')
+    if used is not None:
+        st.caption('Reporting daily increases of {0} or more{1}.'.format(
+            format_cost(used),
+            ' (scaled to this account)' if result.get('min_impact_auto') else ''))
 
     render_anomaly_table(result, states)
 

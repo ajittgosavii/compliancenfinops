@@ -558,9 +558,29 @@ def _overlaps(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     return a_start <= (b_end or b_start) and b_start <= (a_end or a_start)
 
 
+def suggest_min_impact(series: Dict[str, Dict[str, float]],
+                       floor: float = 1.0) -> float:
+    """
+    A dollar floor scaled to what this account actually spends.
+
+    A fixed threshold cannot work across account sizes: $25/day is seven times
+    the entire daily spend of a small estate (so nothing is ever reported) and
+    invisible noise on a large one. A single service moving by a quarter of the
+    account's median DAY is material at any size.
+    """
+    daily_total: Dict[str, float] = {}
+    for by_date in (series or {}).values():
+        for date, value in by_date.items():
+            daily_total[date] = daily_total.get(date, 0.0) + value
+    if not daily_total:
+        return DEFAULT_MIN_IMPACT
+    median_day = _median(list(daily_total.values()))
+    return max(floor, round(median_day * 0.25, 2))
+
+
 def detect_all(days: int = 90, ce_client=None,
                sensitivity: float = DEFAULT_SENSITIVITY,
-               min_impact: float = DEFAULT_MIN_IMPACT) -> Dict[str, Any]:
+               min_impact: Optional[float] = None) -> Dict[str, Any]:
     """
     Run both detectors and cross-reference them.
 
@@ -571,9 +591,18 @@ def detect_all(days: int = 90, ce_client=None,
     costs = fetch_daily_service_costs(days, ce_client)
 
     baseline: List[Dict[str, Any]] = []
+    # min_impact=None means "scale it to this account" - the page reports the
+    # figure it used, so an auto threshold is never a hidden assumption.
+    auto_scaled = min_impact is None
+    effective_min_impact = min_impact
     if costs['status'] == STATUS_OK:
+        if auto_scaled:
+            effective_min_impact = suggest_min_impact(costs['series'])
         baseline = detect_statistical_anomalies(
-            costs['series'], sensitivity=sensitivity, min_impact=min_impact)
+            costs['series'], sensitivity=sensitivity,
+            min_impact=effective_min_impact)
+    elif auto_scaled:
+        effective_min_impact = DEFAULT_MIN_IMPACT
 
     aws_found = health.get('anomalies') or []
     for item in aws_found:
@@ -594,4 +623,6 @@ def detect_all(days: int = 90, ce_client=None,
         'series': costs.get('series', {}),
         'confirmed_count': sum(1 for a in combined if a.get('confirmed')),
         'total_impact': sum(a['total_impact'] for a in combined),
+        'min_impact_used': effective_min_impact,
+        'min_impact_auto': auto_scaled,
     }

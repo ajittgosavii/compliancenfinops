@@ -185,3 +185,10 @@ def test_cost_formatting():
     assert page.format_cost(12.5) == '$12.50'
     assert page.format_cost(2500) == '$2.5K'
     assert page.format_cost(3_400_000) == '$3.40M'
+
+
+def test_negative_zero_residuals_render_as_zero():
+    """Cost Explorer returns -0.0000001 for credits; "-$0.00" reads as a bug."""
+    assert page.format_cost(-0.0000001) == '$0.00'
+    assert page.format_cost(0.0) == '$0.00'
+    assert page.format_cost(-12.5) == '$-12.50'

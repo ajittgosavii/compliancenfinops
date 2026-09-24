@@ -256,3 +256,76 @@ def test_the_two_shapes_are_not_interchangeable():
     assert set(det._time_period(30)) == {'Start', 'End'}
     assert set(det._date_range(30)) == {'StartDate', 'EndDate'}
     assert det._time_period(30)['Start'] == det._date_range(30)['StartDate']
+
+
+# --- Threshold scaling -----------------------------------------------------
+# A fixed dollar floor cannot suit every account. On a real estate whose median
+# day was $3.48, the $25/day default was 7x the entire account's daily spend,
+# so the detector could never report anything at all.
+
+def test_threshold_scales_to_a_small_account():
+    series = build_series([4.0] * 60, service='EC2 - Other')
+    suggested = det.suggest_min_impact(series)
+    assert suggested < det.DEFAULT_MIN_IMPACT
+    assert suggested >= 1.0            # never below the floor
+
+
+def test_threshold_scales_up_for_a_large_account():
+    series = build_series([100_000.0] * 60)
+    assert det.suggest_min_impact(series) == pytest.approx(25_000.0)
+
+
+def test_threshold_respects_its_floor():
+    """A near-zero account must not produce a zero threshold - that is all noise."""
+    series = build_series([0.01] * 60)
+    assert det.suggest_min_impact(series) == 1.0
+
+
+def test_threshold_uses_the_whole_account_not_one_service():
+    series = build_series([10.0] * 60, service='A')
+    series.update(build_series([30.0] * 60, service='B'))
+    # median account day is 40, so a quarter of it
+    assert det.suggest_min_impact(series) == pytest.approx(10.0)
+
+
+def test_no_data_falls_back_to_the_fixed_default():
+    assert det.suggest_min_impact({}) == det.DEFAULT_MIN_IMPACT
+
+
+def test_auto_threshold_finds_what_the_fixed_default_missed():
+    """The exact shape of the real account: small steady spend, one real spike."""
+    # 5x the normal day for this service, but only ~$16 absolute - under the
+    # fixed $25 floor, which is precisely how the real account hid its spikes.
+    series = build_series([4.0 + (i % 5 - 2) * 0.4 for i in range(40)] + [20.0])
+
+    missed = det.detect_statistical_anomalies(series, min_impact=det.DEFAULT_MIN_IMPACT)
+    assert missed == [], 'precondition: the fixed $25 default misses this'
+
+    found = det.detect_statistical_anomalies(
+        series, min_impact=det.suggest_min_impact(series))
+    assert len(found) == 1
+    assert found[0]['total_impact'] == pytest.approx(16, abs=2)
+
+
+def test_detect_all_reports_the_threshold_it_used():
+    class CE:
+        def get_anomaly_monitors(self, **kw):
+            return {'AnomalyMonitors': []}
+
+        def get_cost_and_usage(self, **kw):
+            values = [4.0] * 40 + [20.0]
+            end = datetime.now() - timedelta(days=1)
+            start = end - timedelta(days=len(values) - 1)
+            return {'ResultsByTime': [
+                day((start + timedelta(days=i)).strftime('%Y-%m-%d'),
+                    [('EC2 - Other', v)]) for i, v in enumerate(values)]}
+
+    auto = det.detect_all(90, ce_client=CE())
+    assert auto['min_impact_auto'] is True
+    assert auto['min_impact_used'] < det.DEFAULT_MIN_IMPACT
+    assert len(auto['baseline']) == 1
+
+    fixed = det.detect_all(90, ce_client=CE(), min_impact=25.0)
+    assert fixed['min_impact_auto'] is False
+    assert fixed['min_impact_used'] == 25.0
+    assert fixed['baseline'] == []

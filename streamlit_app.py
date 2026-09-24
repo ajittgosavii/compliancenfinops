@@ -2246,6 +2246,20 @@ def _pick(*sources, names=()):
     return None
 
 
+def _default_credential_chain_available():
+    """
+    Can boto3 find credentials by itself (instance role, SSO, named profile)?
+
+    Purely local - reads config, makes no network call - so it is safe to ask
+    on every render.
+    """
+    try:
+        import boto3
+        return boto3.Session().get_credentials() is not None
+    except Exception:
+        return False
+
+
 def resolve_aws_credentials():
     """Resolve AWS credentials from any supported layout.
 
@@ -7545,8 +7559,17 @@ def render_sidebar():
             
             # 🆕 Only auto-connect if NOT in demo mode
             if not demo_mode:
-                # Auto-connect AWS
-                if has_aws and not st.session_state.get('aws_connected'):
+                # Auto-connect AWS. Explicit keys in secrets are one way to hold
+                # credentials, not the only one: an instance role, an SSO login
+                # or a named profile all produce a usable session that
+                # resolve_aws_credentials() cannot see. Gating solely on
+                # has_aws made the better-practice deployments un-connectable.
+                if has_aws or _default_credential_chain_available():
+                    can_connect = True
+                else:
+                    can_connect = False
+
+                if can_connect and not st.session_state.get('aws_connected'):
                     with st.spinner("Connecting to AWS..."):
                         # Get session token if present (for temporary credentials)
                         aws_session_token = aws_creds.get('session_token') or aws_secrets.get('session_token') or aws_secrets.get('aws_session_token')

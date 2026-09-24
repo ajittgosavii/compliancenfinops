@@ -65,8 +65,8 @@ LEVEL_STYLES = {
 }
 
 
-def verdict_for(result: Dict[str, Any], demo_mode: bool = False
-                ) -> Tuple[str, str, str]:
+def verdict_for(result: Dict[str, Any], demo_mode: bool = False,
+                connected: bool = False) -> Tuple[str, str, str]:
     """
     Reduce a detect_all() result to (level, headline, detail).
 
@@ -83,6 +83,16 @@ def verdict_for(result: Dict[str, Any], demo_mode: bool = False
         return ('unknown', 'No sample data on this page',
                 'Anomaly detection reads AWS Cost Explorer directly, so it has '
                 'nothing to show in demo mode. Connect an account to use it.')
+
+    # Connected, but no Cost Explorer client - a different problem entirely
+    # from "not connected", and telling the operator the wrong one sends them
+    # to check credentials that are already working.
+    if connected and status == det.STATUS_NO_CLIENT:
+        return ('unknown', 'Cost Explorer is not available',
+                'The AWS account is connected, but no Cost Explorer client was '
+                'created. Cost Explorer must be enabled in the payer account, '
+                'and the role needs ce:GetCostAndUsage and ce:GetAnomalies. '
+                'Press Run detection after fixing it.')
     anomalies = result.get('anomalies') or []
     baseline_status = result.get('baseline_status')
     baseline_ran = baseline_status == det.STATUS_OK
@@ -142,7 +152,9 @@ def verdict_for(result: Dict[str, Any], demo_mode: bool = False
 
 def render_verdict(result: Dict[str, Any]) -> None:
     level, headline, detail = verdict_for(
-        result, demo_mode=st.session_state.get('demo_mode', False))
+        result,
+        demo_mode=st.session_state.get('demo_mode', False),
+        connected=bool(st.session_state.get('aws_connected')))
     colour, background, label = LEVEL_STYLES[level]
     st.markdown(
         """<div style='background:{bg};border-left:6px solid {fg};padding:1.25rem 1.5rem;
@@ -425,7 +437,13 @@ def render_anomaly_page() -> None:
     refresh = controls[3].button('🔄 Run detection', type='primary',
                                  key='anomaly_refresh')
 
-    signature = (days, sensitivity, min_impact)
+    # The connection is part of the signature. Without it, a detection that ran
+    # before AWS was connected stayed cached afterwards, so the page kept
+    # reporting "not connected" long after the sidebar said otherwise.
+    signature = (days, sensitivity, min_impact,
+                 bool(st.session_state.get('aws_connected')),
+                 st.session_state.get('aws_account_id'),
+                 bool(st.session_state.get('demo_mode')))
     if refresh or st.session_state.get('anomaly_signature') != signature:
         with st.spinner('Checking detectors and scanning cost history...'):
             st.session_state['anomaly_result'] = det.detect_all(

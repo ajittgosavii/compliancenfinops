@@ -114,8 +114,17 @@ def test_old_spikes_outside_the_eval_window_are_not_re_reported():
 class FakeCE:
     def __init__(self, pages):
         self.pages = pages
+        self.calls = []
 
     def get_cost_and_usage(self, **kwargs):
+        # Validate like botocore does. Without this the fake accepted any
+        # parameter shape, and a wrong one only failed against real AWS.
+        period = kwargs.get('TimePeriod')
+        if not isinstance(period, dict) or set(period) != {'Start', 'End'}:
+            raise ValueError(
+                'ParamValidationError: TimePeriod must be exactly '
+                '{{Start, End}}, got {0}'.format(sorted(period or {})))
+        self.calls.append(kwargs)
         index = int(kwargs.get('NextPageToken') or 0)
         return self.pages[index]
 
@@ -217,3 +226,33 @@ def test_baseline_runs_even_when_no_monitor_exists():
     assert len(result['baseline']) == 1
     assert result['aws'] == []
     assert result['total_impact'] > 0
+
+
+# --- Cost Explorer parameter shapes ----------------------------------------
+# These two APIs express the same idea with different key names. Sending the
+# wrong one fails validation at AWS, and a permissive fake will not notice.
+
+def test_cost_and_usage_uses_TimePeriod_with_Start_and_End():
+    fake = FakeCE([{'ResultsByTime': []}])
+    result = det.fetch_daily_service_costs(30, ce_client=fake)
+    assert result['status'] == det.STATUS_OK
+    assert set(fake.calls[0]['TimePeriod']) == {'Start', 'End'}
+
+
+def test_get_anomalies_uses_DateInterval_with_StartDate_and_EndDate():
+    captured = {}
+
+    class AnomalyCE:
+        def get_anomalies(self, **kwargs):
+            captured.update(kwargs)
+            return {'Anomalies': []}
+
+    det.fetch_anomalies(30, ce_client=AnomalyCE())
+    assert set(captured['DateInterval']) == {'StartDate', 'EndDate'}
+
+
+def test_the_two_shapes_are_not_interchangeable():
+    """Guards the exact mix-up that failed against real AWS."""
+    assert set(det._time_period(30)) == {'Start', 'End'}
+    assert set(det._date_range(30)) == {'StartDate', 'EndDate'}
+    assert det._time_period(30)['Start'] == det._date_range(30)['StartDate']

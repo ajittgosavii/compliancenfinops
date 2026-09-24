@@ -74,10 +74,27 @@ def _classify(exc: Exception) -> Dict[str, str]:
     }
 
 
-def _date_range(days: int) -> Dict[str, str]:
+def _window(days: int) -> tuple:
     end = datetime.now()
     start = end - timedelta(days=days)
-    return {'StartDate': start.strftime('%Y-%m-%d'), 'EndDate': end.strftime('%Y-%m-%d')}
+    return start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
+
+
+def _date_range(days: int) -> Dict[str, str]:
+    """DateInterval for get_anomalies - StartDate/EndDate."""
+    start, end = _window(days)
+    return {'StartDate': start, 'EndDate': end}
+
+
+def _time_period(days: int) -> Dict[str, str]:
+    """
+    TimePeriod for get_cost_and_usage - Start/End.
+
+    Cost Explorer uses two different shapes for what is the same idea, and
+    sending the anomaly shape here fails validation outright.
+    """
+    start, end = _window(days)
+    return {'Start': start, 'End': end}
 
 
 def _as_date(value: Any) -> Optional[datetime]:
@@ -388,7 +405,7 @@ def fetch_daily_service_costs(days: int = 90, ce_client=None) -> Dict[str, Any]:
     try:
         while True:
             kwargs = {
-                'TimePeriod': _date_range(days),
+                'TimePeriod': _time_period(days),
                 'Granularity': 'DAILY',
                 'Metrics': ['UnblendedCost'],
                 'GroupBy': [{'Type': 'DIMENSION', 'Key': 'SERVICE'}],

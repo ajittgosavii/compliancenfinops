@@ -76,6 +76,30 @@ def test_demo_mode_does_not_suppress_real_findings():
     assert '1 cost anomaly' in headline
 
 
+def test_connected_but_no_cost_explorer_is_not_reported_as_disconnected():
+    """
+    Sending someone to check credentials that are already working wastes their
+    time - connected-with-no-CE is a different failure from not connected.
+    """
+    level, headline, detail = page.verdict_for(
+        result(det.STATUS_NO_CLIENT), connected=True)
+    assert level == 'unknown'
+    assert 'Cost Explorer is not available' == headline
+    assert 'connected' in detail
+    assert 'ce:GetCostAndUsage' in detail
+
+
+def test_not_connected_still_says_not_connected():
+    _, headline, _ = page.verdict_for(result(det.STATUS_NO_CLIENT), connected=False)
+    assert 'Not connected' in headline
+
+
+def test_connected_flag_does_not_mask_real_findings():
+    _, headline, _ = page.verdict_for(
+        result(det.STATUS_OK, [anomaly(900)]), connected=True)
+    assert '1 cost anomaly' in headline
+
+
 def test_error_is_not_clear():
     level, _, _ = page.verdict_for(result(det.STATUS_ERROR, message='boom'))
     assert level == 'unknown'

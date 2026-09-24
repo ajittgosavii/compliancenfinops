@@ -154,6 +154,39 @@ def verdict_for(result: Dict[str, Any], demo_mode: bool = False,
 
 # --- Sections --------------------------------------------------------------
 
+def data_source_note(demo_mode: bool, connected: bool,
+                     account: Optional[str] = None) -> Optional[str]:
+    """
+    What this page is reading, in its own words.
+
+    It has no sample data and never fabricates any, so the app-wide "demo mode -
+    every figure is sample data" banner is simply false here. Rather than let a
+    live monitor sit under a caption calling it sample data, the page states
+    its own source.
+    """
+    if not connected:
+        return None                      # the verdict already says this
+    where = 'account {0}'.format(account) if account else 'your connected account'
+    if demo_mode:
+        return ('Demo mode does not apply to this page. Anomaly detection reads '
+                'live AWS Cost Explorer, so everything below is real data from '
+                '{0}.'.format(where))
+    return 'Reading live AWS Cost Explorer data from {0}.'.format(where)
+
+
+def _render_data_source() -> None:
+    note = data_source_note(
+        demo_mode=bool(st.session_state.get('demo_mode')),
+        connected=bool(st.session_state.get('aws_connected')),
+        account=st.session_state.get('aws_account_id'))
+    if not note:
+        return
+    if st.session_state.get('demo_mode'):
+        st.warning(note)                 # correcting a claim made upstream
+    else:
+        st.caption(note)
+
+
 def render_verdict(result: Dict[str, Any]) -> None:
     level, headline, detail = verdict_for(
         result,
@@ -426,6 +459,7 @@ def render_anomaly_page() -> None:
     # gave the page two headings.
     st.caption('AWS Cost Anomaly Detection plus an independent baseline detector, '
                'cross-referenced. A finding both agree on is the strongest signal.')
+    _render_data_source()
 
     controls = st.columns([1, 1, 1, 1])
     days = controls[0].selectbox('Lookback', [30, 60, 90, 180], index=2,

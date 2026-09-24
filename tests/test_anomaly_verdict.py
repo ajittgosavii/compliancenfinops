@@ -192,3 +192,33 @@ def test_negative_zero_residuals_render_as_zero():
     assert page.format_cost(-0.0000001) == '$0.00'
     assert page.format_cost(0.0) == '$0.00'
     assert page.format_cost(-12.5) == '$-12.50'
+
+
+# --- Data provenance -------------------------------------------------------
+# The app-wide banner claims "every figure on this page is sample data" in demo
+# mode. This page reads live Cost Explorer and has no sample data, so under a
+# real monitor that caption was simply false.
+
+def test_demo_mode_note_corrects_the_app_wide_claim():
+    note = page.data_source_note(demo_mode=True, connected=True,
+                                 account='448549863273')
+    assert 'Demo mode does not apply' in note
+    assert 'real data' in note
+    assert '448549863273' in note
+
+
+def test_live_mode_states_the_source():
+    note = page.data_source_note(demo_mode=False, connected=True,
+                                 account='448549863273')
+    assert 'live AWS Cost Explorer' in note
+    assert '448549863273' in note
+
+
+def test_no_note_when_disconnected_because_the_verdict_covers_it():
+    assert page.data_source_note(demo_mode=False, connected=False) is None
+    assert page.data_source_note(demo_mode=True, connected=False) is None
+
+
+def test_note_works_without_a_known_account_id():
+    note = page.data_source_note(demo_mode=True, connected=True, account=None)
+    assert 'your connected account' in note

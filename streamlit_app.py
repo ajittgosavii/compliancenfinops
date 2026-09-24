@@ -10346,8 +10346,12 @@ def main():
     else:
         st.markdown(f"## {section_title}")
 
-    # Mode indicator banner
-    render_mode_banner()
+    # Mode indicator banner. Skipped on Cost anomalies: that page always reads
+    # live Cost Explorer and has no sample data, so the generic "every figure
+    # is sample data" line would contradict what is on screen. It states its
+    # own source instead.
+    if active_section != 10:
+        render_mode_banner()
 
     # Fetch Security Hub data
     sec_hub_data = fetch_security_hub_findings(
